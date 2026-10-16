@@ -262,6 +262,9 @@ export default function Home() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [postcardTags, setPostcardTags] = useState<Record<string, PostcardTags>>({});
+  const [canEditTags, setCanEditTags] = useState(false);
+  const [tagSavingId, setTagSavingId] = useState<string | null>(null);
+  const [tagError, setTagError] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [cityFilter, setCityFilter] = useState("");
   const [styleFilter, setStyleFilter] = useState("");
@@ -296,10 +299,16 @@ export default function Home() {
   const [selectedArchive, setSelectedArchive] = useState<ArchivedPostcard | null>(null);
   const [fullscreenCard, setFullscreenCard] = useState<FullscreenPostcardSide | null>(null);
   useEffect(() => {
-    try {
-      const savedTags = window.localStorage.getItem("postie-postcard-tags");
-      if (savedTags) setPostcardTags(JSON.parse(savedTags) as Record<string, PostcardTags>);
-    } catch { /* Ignore invalid local tag data and use empty tags. */ }
+    const controller = new AbortController();
+    fetch("/api/catalog-tags", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Не удалось загрузить теги каталога.");
+        return result as { tags: Record<string, PostcardTags>; canEdit: boolean };
+      })
+      .then((result) => { setPostcardTags(result.tags); setCanEditTags(result.canEdit); })
+      .catch((error: unknown) => { if (error instanceof Error && error.name !== "AbortError") setTagError(error.message); })
+    return () => controller.abort();
   }, []);
   const tagValues = (key: keyof PostcardTags) => [...new Set(Object.values(postcardTags).map((tags) => tags[key].trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ru"));
  const filtered = postcards.filter((card) => {
@@ -330,10 +339,27 @@ export default function Home() {
   function updatePostcardTag(cardId: string, key: keyof PostcardTags, value: string) {
     setPostcardTags((current) => {
       const existing = current[cardId] ?? { country: "", city: "", style: "", occasion: "" };
-      const next = { ...current, [cardId]: { ...existing, [key]: value } };
-      window.localStorage.setItem("postie-postcard-tags", JSON.stringify(next));
-      return next;
+      return { ...current, [cardId]: { ...existing, [key]: value } };
     });
+  }
+
+  async function savePostcardTags(cardId: string) {
+    setTagSavingId(cardId);
+    setTagError("");
+    try {
+      const response = await fetch("/api/catalog-tags", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postcardId: cardId, tags: postcardTags[cardId] ?? { country: "", city: "", style: "", occasion: "" } }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Не удалось сохранить теги.");
+      setPostcardTags((current) => ({ ...current, [cardId]: result.tags as PostcardTags }));
+    } catch (error) {
+      setTagError(error instanceof Error ? error.message : "Не удалось сохранить теги.");
+    } finally {
+      setTagSavingId(null);
+    }
   }
 
   useEffect(() => {
@@ -627,6 +653,7 @@ export default function Home() {
           <select aria-label="Повод" value={occasionFilter} onChange={(event) => setOccasionFilter(event.target.value)}><option value="">Любой повод</option>{tagValues("occasion").map((value) => <option key={value}>{value}</option>)}</select>
           <select aria-label="Сортировка" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}><option value="default">По умолчанию</option><option value="title">По названию</option><option value="favorites">Сначала избранные</option></select>
         </div>
+        {tagError && <p className="catalog-message" role="status">{tagError}</p>}
 
         <div className="postcard-grid">
           {visiblePostcards.map((card) => (
@@ -665,12 +692,13 @@ export default function Home() {
                 </button>
               </div>
               <p className="card-category">{card.category}</p>
-              <details className="postcard-tag-editor">
-                <summary>＋ Теги</summary>
+              {canEditTags ? <details className="postcard-tag-editor">
+                <summary>＋ Изменить теги</summary>
                 <div className="postcard-tag-fields">
                   {([["country", "Страна"], ["city", "Город"], ["style", "Стиль"], ["occasion", "Повод"]] as const).map(([key, label]) => <label key={key}>{label}<input value={postcardTags[card.id]?.[key] ?? ""} onChange={(event) => updatePostcardTag(card.id, key, event.target.value)} placeholder={label} /></label>)}
+                  <button type="button" className="save-tags-button" disabled={tagSavingId === card.id} onClick={() => void savePostcardTags(card.id)}>{tagSavingId === card.id ? "Сохраняю…" : "Сохранить"}</button>
                 </div>
-              </details>
+              </details> : <p className="postcard-tag-list">{Object.values(postcardTags[card.id] ?? {}).filter(Boolean).join(" · ")}</p>}
             </article>
           ))}
         </div>
