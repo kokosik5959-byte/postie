@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from "react";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import Postcard3D from "@/components/Postcard3D";
 
 type Postcard = {
   id: string;
@@ -27,6 +28,7 @@ type MailCard = {
 
 type Friend = { id: string; personId: string; name: string; createdAt: string };
 type FriendsData = { friends: Friend[]; incoming: Friend[]; outgoing: Friend[] };
+type ArchivedPostcard = { id: string; title: string; frontImage: string; backImage: string; notes: string; createdAt: string };
 type AppIconName = "home" | "sent" | "create" | "received" | "profile" | "friends";
 
 function AppIcon({ name }: { name: AppIconName }) {
@@ -67,7 +69,7 @@ export default function Home() {
   const [postcards, setPostcards] = useState<Postcard[]>([]);
   const [photosLoading, setPhotosLoading] = useState(true);
   const [photosError, setPhotosError] = useState("");
-  const [activeView, setActiveView] = useState<"home" | "sent" | "received" | "collections" | "friends">("home");
+  const [activeView, setActiveView] = useState<"home" | "sent" | "received" | "collections" | "friends" | "archive">("home");
   const [category, setCategory] = useState("Все");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -174,6 +176,19 @@ export default function Home() {
   const [friendMessage, setFriendMessage] = useState("");
   const [selectedMail, setSelectedMail] = useState<MailCard | null>(null);
   const [mailBackVisible, setMailBackVisible] = useState(false);
+  const [digitizeOpen, setDigitizeOpen] = useState(false);
+  const [digitizeFront, setDigitizeFront] = useState<File | null>(null);
+  const [digitizeBack, setDigitizeBack] = useState<File | null>(null);
+  const [digitizeFrontPreview, setDigitizeFrontPreview] = useState("");
+  const [digitizeBackPreview, setDigitizeBackPreview] = useState("");
+  const [digitizeTitle, setDigitizeTitle] = useState("");
+  const [digitizeNotes, setDigitizeNotes] = useState("");
+  const [digitizeMessage, setDigitizeMessage] = useState("");
+  const [digitizeSaving, setDigitizeSaving] = useState(false);
+  const [archiveCards, setArchiveCards] = useState<ArchivedPostcard[]>([]);
+  const [archiveLoading, setArchiveLoading] = useState(true);
+  const [archiveError, setArchiveError] = useState("");
+  const [selectedArchive, setSelectedArchive] = useState<ArchivedPostcard | null>(null);
  const filtered = postcards.filter((card) => {
   const matchesCategory =
     category === "Все" || card.category === category;
@@ -211,6 +226,17 @@ export default function Home() {
   }, [activeView]);
 
   useEffect(() => {
+    if (activeView !== "archive") return;
+    const controller = new AbortController();
+    fetch("/api/archive", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => { const result = await response.json(); if (!response.ok) throw new Error(result.error || "Не удалось открыть архив."); return result as ArchivedPostcard[]; })
+      .then(setArchiveCards)
+      .catch((error: unknown) => { if (error instanceof Error && error.name !== "AbortError") setArchiveError(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setArchiveLoading(false); });
+    return () => controller.abort();
+  }, [activeView]);
+
+  useEffect(() => {
     if (activeView !== "friends" && !(deliveryMode === "friend" && (showCreate || editorOpen))) return;
     const controller = new AbortController();
     setFriendsLoading(true);
@@ -223,7 +249,8 @@ export default function Home() {
   }, [activeView, deliveryMode, showCreate, editorOpen]);
 
   function moveCaption(event: PointerEvent<HTMLParagraphElement>) {
-    const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
+    event.stopPropagation();
+    const bounds = event.currentTarget.closest(".front-image-wrap")?.getBoundingClientRect();
     if (!bounds) return;
     setFrontCaptionX(Math.max(5, Math.min(95, ((event.clientX - bounds.left) / bounds.width) * 100)));
     setFrontCaptionY(Math.max(5, Math.min(95, ((event.clientY - bounds.top) / bounds.height) * 100)));
@@ -307,6 +334,65 @@ export default function Home() {
       setShowCreate(false);
     };
     reader.readAsDataURL(file);
+  }
+
+  function chooseDigitizedSide(side: "front" | "back", file?: File) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setDigitizeMessage("Для архива выбери изображение JPG, PNG или WebP.");
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      setDigitizeMessage("Размер каждой стороны должен быть меньше 12 МБ.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (side === "front") { setDigitizeFront(file); setDigitizeFrontPreview(String(reader.result)); }
+      else { setDigitizeBack(file); setDigitizeBackPreview(String(reader.result)); }
+      setDigitizeMessage("");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveDigitizedPostcard() {
+    if (!digitizeFront || !digitizeBack) { setDigitizeMessage("Добавь фотографии обеих сторон открытки."); return; }
+    setDigitizeSaving(true);
+    setDigitizeMessage("");
+    const uploadedPaths: string[] = [];
+    try {
+      const supabase = createSupabaseClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Войди в аккаунт Postie, чтобы сохранить открытку в архив.");
+      const id = crypto.randomUUID();
+      const frontExt = digitizeFront.type === "image/png" ? "png" : digitizeFront.type === "image/webp" ? "webp" : "jpg";
+      const backExt = digitizeBack.type === "image/png" ? "png" : digitizeBack.type === "image/webp" ? "webp" : "jpg";
+      const frontPath = `${user.id}/archive/${id}/front.${frontExt}`;
+      const backPath = `${user.id}/archive/${id}/back.${backExt}`;
+      const frontUpload = await supabase.storage.from("postcard-images").upload(frontPath, digitizeFront, { contentType: digitizeFront.type, upsert: false });
+      if (frontUpload.error) throw new Error(frontUpload.error.message);
+      uploadedPaths.push(frontPath);
+      const backUpload = await supabase.storage.from("postcard-images").upload(backPath, digitizeBack, { contentType: digitizeBack.type, upsert: false });
+      if (backUpload.error) throw new Error(backUpload.error.message);
+      uploadedPaths.push(backPath);
+      const response = await fetch("/api/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: digitizeTitle, notes: digitizeNotes, frontImagePath: frontPath, backImagePath: backPath }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Не удалось сохранить открытку.");
+      setDigitizeMessage("Открытка сохранена в «Мои открытки».");
+      setDigitizeFront(null); setDigitizeBack(null); setDigitizeFrontPreview(""); setDigitizeBackPreview("");
+      setDigitizeTitle(""); setDigitizeNotes("");
+      setActiveView("archive");
+      setDigitizeOpen(false);
+    } catch (error) {
+      if (uploadedPaths.length) {
+        try { const supabase = createSupabaseClient(); await supabase.storage.from("postcard-images").remove(uploadedPaths); } catch { /* keep the original save error */ }
+      }
+      setDigitizeMessage(error instanceof Error ? error.message : "Не удалось сохранить открытку.");
+    } finally { setDigitizeSaving(false); }
   }
 
   function editProfileName() {
@@ -497,6 +583,16 @@ export default function Home() {
         </section>
       )}
 
+      {activeView === "archive" && (
+        <section className="mailbox-screen archive-screen">
+          <div className="mailbox-heading"><div><p className="eyebrow">ТВОЯ СЕМЕЙНАЯ ИСТОРИЯ</p><h1>Мои открытки</h1></div><button type="button" aria-label="Оцифровать открытку" onClick={() => setDigitizeOpen(true)}>＋</button></div>
+          {archiveLoading && <p className="catalog-message">Открываю архив…</p>}
+          {archiveError && <p className="catalog-message">{archiveError} <a href="/auth">Войти в аккаунт</a></p>}
+          {!archiveLoading && !archiveError && archiveCards.length === 0 && <p className="catalog-message">Здесь будут храниться оцифрованные открытки. Добавь фотографии лицевой и обратной стороны.</p>}
+          <div className="archive-grid">{archiveCards.map((card) => <button type="button" className="archive-card" key={card.id} onClick={() => setSelectedArchive(card)}><img src={card.frontImage} alt="" /><strong>{card.title}</strong><small>{new Date(card.createdAt).toLocaleDateString("ru-RU")}</small></button>)}</div>
+        </section>
+      )}
+
       <footer className="bottom-nav">
         <button className={`nav-item ${activeView === "home" || activeView === "collections" ? "selected" : ""}`} onClick={() => { setActiveView("home"); setShowFavoritesOnly(false); }}>
           <span><AppIcon name="home" /></span>Главная
@@ -594,6 +690,11 @@ export default function Home() {
                   <span><strong>Добавить своё фото</strong><small>Создай открытку из личного момента</small></span>
                   <span>→</span>
                 </button>
+                <button className="choice-card" onClick={() => { setShowCreate(false); setDigitizeMessage(""); setDigitizeOpen(true); }}>
+                  <span className="choice-icon">▤</span>
+                  <span><strong>Оцифровать старую открытку</strong><small>Сохрани обе стороны в личном архиве</small></span>
+                  <span>→</span>
+                </button>
                 <input
                   ref={fileInput}
                   type="file"
@@ -622,48 +723,24 @@ export default function Home() {
       <p className="eyebrow">ТВОЯ ЛИЧНАЯ ОТКРЫТКА</p>
       <h2>Почти готово!</h2>
 
-      <div className={`editor-postcard ${showBack ? "is-back" : ""}`}>
-        {!showBack ? (
-          <div className="editor-front">
-            
-{photo ? (
-  <div className="front-image-wrap">
-    <img src={photo} alt="Лицевая сторона открытки" />
-    {frontCaption.trim() && <p className="front-caption-overlay" onPointerDown={(event) => { captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={() => { captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>{frontCaption}</p>}
-  </div>
-) : selected ? (
-  <div className="front-image-wrap">
-    <img src={selected.image} alt={selected.title} />
-    {frontCaption.trim() && <p className="front-caption-overlay" onPointerDown={(event) => { captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={() => { captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>{frontCaption}</p>}
-  </div>
-) : null}
+      <Postcard3D
+        backVisible={showBack}
+        className="editor-3d"
+        front={<div className="editor-face-front"><div className="front-image-wrap">{photo ? <img src={photo} alt="Лицевая сторона открытки" /> : selected ? <img src={selected.image} alt={selected.title} /> : null}{frontCaption.trim() && <p className="front-caption-overlay" onPointerDown={(event) => { event.stopPropagation(); captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={(event) => { event.stopPropagation(); captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>{frontCaption}</p>}</div></div>}
+        back={<div className="editor-face-back"><span className="postmark">POSTIE</span><p>{greeting || "Здесь появится твоё поздравление…"}</p><span className="signature">С теплом ♡</span></div>}
+      />
 
-            <label className="greeting-label">
-  Подпись на лицевой стороне · необязательно
-  <input
-    className="greeting-input"
-    value={frontCaption}
-    onChange={(event) => setFrontCaption(event.target.value)}
-    placeholder="Например, наше лето в Грузии"
-    maxLength={60}
-  />
-  <small className="delivery-hint">Перетащи надпись мышью или пальцем в нужное место открытки.</small>
-</label>
-<div className="text-editor-controls" aria-label="Настройки текста">
-  <label>Шрифт<select value={fontFamily} onChange={(event) => setFontFamily(event.target.value)}><option value="Georgia">Georgia</option><option value="Arial">Arial</option><option value="Verdana">Verdana</option><option value="'Times New Roman'">Times New Roman</option><option value="'Courier New'">Courier New</option></select></label>
-  <label>Размер<span className="font-size-control"><input type="range" min="12" max="64" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /><output>{fontSize} px</output></span></label>
-  <label>Цвет<input className="color-control" type="color" value={fontColor} onChange={(event) => setFontColor(event.target.value)} /></label>
-  <div className="format-controls" aria-label="Начертание"><button type="button" className={isBold ? "format-button active" : "format-button"} aria-pressed={isBold} onClick={() => setIsBold((value) => !value)}><strong>Ж</strong></button><button type="button" className={isItalic ? "format-button active" : "format-button"} aria-pressed={isItalic} onClick={() => setIsItalic((value) => !value)}><em>К</em></button></div>
-  <label>Выравнивание<select value={textAlign} onChange={(event) => setTextAlign(event.target.value as "left" | "center" | "right")}><option value="left">Слева</option><option value="center">По центру</option><option value="right">Справа</option></select></label>
-</div>
-          </div>
-        ) : (
-          <div className="editor-back">
-            <span className="postmark">POSTIE</span>
-            <p>{greeting || "Здесь появится твоё поздравление…"}</p>
-            <span className="signature">С теплом ♡</span>
-          </div>
-        )}
+      <label className="greeting-label">
+        Подпись на лицевой стороне · необязательно
+        <input className="greeting-input" value={frontCaption} onChange={(event) => setFrontCaption(event.target.value)} placeholder="Например, наше лето в Грузии" maxLength={60} />
+        <small className="delivery-hint">Перетащи надпись мышью или пальцем в нужное место открытки.</small>
+      </label>
+      <div className="text-editor-controls" aria-label="Настройки текста">
+        <label>Шрифт<select value={fontFamily} onChange={(event) => setFontFamily(event.target.value)}><option value="Georgia">Georgia</option><option value="Arial">Arial</option><option value="Verdana">Verdana</option><option value="'Times New Roman'">Times New Roman</option><option value="'Courier New'">Courier New</option></select></label>
+        <label>Размер<span className="font-size-control"><input type="range" min="12" max="64" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /><output>{fontSize} px</output></span></label>
+        <label>Цвет<input className="color-control" type="color" value={fontColor} onChange={(event) => setFontColor(event.target.value)} /></label>
+        <div className="format-controls" aria-label="Начертание"><button type="button" className={isBold ? "format-button active" : "format-button"} aria-pressed={isBold} onClick={() => setIsBold((value) => !value)}><strong>Ж</strong></button><button type="button" className={isItalic ? "format-button active" : "format-button"} aria-pressed={isItalic} onClick={() => setIsItalic((value) => !value)}><em>К</em></button></div>
+        <label>Выравнивание<select value={textAlign} onChange={(event) => setTextAlign(event.target.value as "left" | "center" | "right")}><option value="left">Слева</option><option value="center">По центру</option><option value="right">Справа</option></select></label>
       </div>
 
       <button
@@ -870,6 +947,10 @@ export default function Home() {
         <span><AppIcon name="friends" /></span> Друзья <span>›</span>
       </button>
 
+      <button type="button" className="profile-link" onClick={() => { setShowProfile(false); setArchiveError(""); setActiveView("archive"); }}>
+        <span>▣</span> Мои открытки <span>›</span>
+      </button>
+
       <button
         type="button"
         className="profile-link"
@@ -940,10 +1021,42 @@ export default function Home() {
       <button type="button" className="modal-close" aria-label="Закрыть открытку" onClick={() => setSelectedMail(null)}>×</button>
       <p className="eyebrow">{mailBackVisible ? "ТЕКСТ ОТКРЫТКИ" : "ТЕБЕ ПРИШЛА ОТКРЫТКА"}</p>
       <h2>{selectedMail.title}</h2>
-      {!mailBackVisible ? <div className="opened-card-image"><img src={selectedMail.image} alt={selectedMail.frontCaption || selectedMail.title} />{selectedMail.frontCaption.trim() && <span style={{ left: `${selectedMail.frontCaptionX}%`, top: `${selectedMail.frontCaptionY}%` }}>{selectedMail.frontCaption}</span>}</div> : <div className="opened-card-message"><p>{selectedMail.message || "Пусть этот момент останется с тобой."}</p><small>С теплом ♡</small></div>}
+      <Postcard3D
+        backVisible={mailBackVisible}
+        className="opened-card-3d"
+        front={<div className="opened-card-image"><img src={selectedMail.image} alt={selectedMail.frontCaption || selectedMail.title} />{selectedMail.frontCaption.trim() && <span style={{ left: `${selectedMail.frontCaptionX}%`, top: `${selectedMail.frontCaptionY}%` }}>{selectedMail.frontCaption}</span>}</div>}
+        back={<div className="opened-card-message"><span className="postmark">POSTIE</span><p>{selectedMail.message || "Пусть этот момент останется с тобой."}</p><small>С теплом ♡</small></div>}
+      />
       <p className="delivery-hint">{activeView === "sent" ? `Для: ${selectedMail.contactName || "по ссылке"}` : `От: ${selectedMail.contactName || "друга Postie"}`}</p>
       <button type="button" className="primary-button full-button" onClick={() => setMailBackVisible((value) => !value)}>{mailBackVisible ? "Посмотреть лицевую сторону" : "Прочитать поздравление"}</button>
       {selectedMail.shareUrl && <button type="button" className="mail-share" onClick={async () => { if (navigator.share) await navigator.share({ title: "Открытка Postie", text: "Для тебя есть открытка!", url: selectedMail.shareUrl! }); else await navigator.clipboard.writeText(selectedMail.shareUrl!); }}>Поделиться ссылкой</button>}
+    </section>
+  </div>
+)}
+{digitizeOpen && (
+  <div className="modal-backdrop" onClick={() => setDigitizeOpen(false)}>
+    <section className="create-modal digitize-modal" onClick={(event) => event.stopPropagation()}>
+      <button type="button" className="modal-close" aria-label="Закрыть" onClick={() => setDigitizeOpen(false)}>×</button>
+      <p className="eyebrow">ЛИЧНЫЙ АРХИВ</p><h2>Оцифровать открытку</h2>
+      <p className="delivery-hint">Сфотографируй обе стороны. Открытка сохранится только в твоём профиле.</p>
+      <div className="digitize-side-grid">
+        <label className="digitize-side"><strong>Лицевая сторона</strong>{digitizeFrontPreview ? <img src={digitizeFrontPreview} alt="Лицевая сторона" /> : <span className="digitize-placeholder">＋ Добавить фото</span>}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseDigitizedSide("front", event.target.files?.[0])} /></label>
+        <label className="digitize-side"><strong>Обратная сторона</strong>{digitizeBackPreview ? <img src={digitizeBackPreview} alt="Обратная сторона" /> : <span className="digitize-placeholder">＋ Добавить фото</span>}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseDigitizedSide("back", event.target.files?.[0])} /></label>
+      </div>
+      <label className="greeting-label">Название<input className="greeting-input" value={digitizeTitle} onChange={(event) => setDigitizeTitle(event.target.value)} placeholder="Например, открытка от бабушки" maxLength={100} /></label>
+      <label className="greeting-label">Заметка · необязательно<textarea className="greeting-input" value={digitizeNotes} onChange={(event) => setDigitizeNotes(event.target.value)} placeholder="Откуда открытка и когда получена?" rows={3} maxLength={2000} /></label>
+      {digitizeMessage && <p className="friend-message" role="status">{digitizeMessage}</p>}
+      <button type="button" className="primary-button full-button" disabled={digitizeSaving || !digitizeFront || !digitizeBack} onClick={() => void saveDigitizedPostcard()}>{digitizeSaving ? "Сохраняю…" : "Сохранить в «Мои открытки»"}</button>
+    </section>
+  </div>
+)}
+{selectedArchive && (
+  <div className="modal-backdrop" onClick={() => setSelectedArchive(null)}>
+    <section className="create-modal opened-mail-modal archive-view-modal" onClick={(event) => event.stopPropagation()}>
+      <button type="button" className="modal-close" aria-label="Закрыть" onClick={() => setSelectedArchive(null)}>×</button>
+      <p className="eyebrow">ЛИЧНЫЙ АРХИВ · {new Date(selectedArchive.createdAt).toLocaleDateString("ru-RU")}</p><h2>{selectedArchive.title}</h2>
+      <Postcard3D className="archive-3d" front={<div className="archive-face"><img src={selectedArchive.frontImage} alt="Лицевая сторона старой открытки" /></div>} back={<div className="archive-face"><img src={selectedArchive.backImage} alt="Обратная сторона старой открытки" /></div>} />
+      {selectedArchive.notes && <p className="archive-notes">{selectedArchive.notes}</p>}
     </section>
   </div>
 )}

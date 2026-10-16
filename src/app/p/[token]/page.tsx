@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import Postcard3D from "@/components/Postcard3D";
 
 export const instant = false;
 
@@ -43,9 +44,8 @@ export default async function SharedPostcardPage({ params }: SharedPostcardPageP
         <article className="shared-postcard">
           <p className="eyebrow">ТЕБЕ ПРИШЛА ОТКРЫТКА</p>
           <h1>{card.title}</h1>
-          <div className="shared-image-wrap"><img src={imageUrl} alt={card.front_caption || card.title} />{card.front_caption.trim() && <span className="shared-front-caption" style={{ left: `${card.front_caption_x}%`, top: `${card.front_caption_y}%` }}>{card.front_caption}</span>}</div>
           <p className="shared-sender">От {senderName}</p>
-          {card.message && <p className="shared-message">{card.message}</p>}
+          <Postcard3D className="shared-card-3d" front={<div className="shared-image-wrap"><img src={imageUrl} alt={card.front_caption || card.title} />{card.front_caption.trim() && <span className="shared-front-caption" style={{ left: `${card.front_caption_x}%`, top: `${card.front_caption_y}%` }}>{card.front_caption}</span>}</div>} back={<div className="opened-card-message"><span className="postmark">POSTIE</span><p>{card.message || "Пусть этот момент останется с тобой."}</p><small>С теплом ♡ · {senderName}</small></div>} />
           <Link href="/auth" className="primary-button full-button">Создать свою открытку</Link>
         </article>
       ) : (
