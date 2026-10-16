@@ -507,7 +507,7 @@ export default function Home() {
     <main className="postie">
       <header className="topbar">
         <a className="brand" href="#" aria-label="Postie — главная">
-          Post<span className="brand-i">i<span className="brand-heart">♥</span></span>e
+          Post<span className="brand-i">ı<span className="brand-heart">♥</span></span>e
 
 <svg
   className="brand-lines"

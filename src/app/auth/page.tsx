@@ -82,7 +82,7 @@ export default function AuthPage() {
     <main className="postie auth-screen">
       <Link className="auth-back" href="/">← К открыткам</Link>
       <div className="auth-card">
-        <p className="brand auth-brand">Post<span className="brand-i">i<span className="brand-heart">♥</span></span>e</p>
+        <p className="brand auth-brand">Post<span className="brand-i">ı<span className="brand-heart">♥</span></span>e</p>
         {accountEmail ? (
           <>
             <h1>Ты уже с нами</h1>
