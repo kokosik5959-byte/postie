@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Postcard3D from "@/components/Postcard3D";
+import { LanguageProvider, LanguageSwitcher, LocalizedTree } from "@/lib/language";
 
 export const instant = false;
 
@@ -37,8 +38,8 @@ export default async function SharedPostcardPage({ params }: SharedPostcardPageP
   }
 
   return (
-    <main className="postie shared-screen">
-      <Link className="auth-back" href="/">← Postie</Link>
+    <LanguageProvider><LocalizedTree><main className="postie shared-screen">
+      <div className="shared-header-row"><Link className="auth-back" href="/">← Postie</Link><LanguageSwitcher /></div>
       {card && imageUrl ? (
         <article className="shared-postcard">
           <p className="eyebrow">ТЕБЕ ПРИШЛА ОТКРЫТКА</p>
@@ -55,6 +56,6 @@ export default async function SharedPostcardPage({ params }: SharedPostcardPageP
           <Link href="/" className="primary-button full-button">Посмотреть открытки</Link>
         </div>
       )}
-    </main>
+    </main></LocalizedTree></LanguageProvider>
   );
 }

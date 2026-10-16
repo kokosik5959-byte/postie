@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from "react";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import Postcard3D from "@/components/Postcard3D";
+import { LanguageProvider, LanguageSwitcher, LocalizedTree, useLanguage } from "@/lib/language";
 
 type Postcard = {
   id: string;
@@ -165,6 +166,11 @@ function PostcardFullscreenViewer({ card, onClose }: { card: FullscreenPostcardS
 }
 
 export default function Home() {
+  return <LanguageProvider><HomeContent /></LanguageProvider>;
+}
+
+function HomeContent() {
+  const { language } = useLanguage();
   const [postcards, setPostcards] = useState<Postcard[]>([]);
   const [photosLoading, setPhotosLoading] = useState(true);
   const [photosError, setPhotosError] = useState("");
@@ -480,7 +486,7 @@ export default function Home() {
   function choosePhoto(file?: File) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      alert("Пожалуйста, выбери изображение.");
+      alert(language === "en" ? "Please choose an image." : "Пожалуйста, выбери изображение.");
       return;
     }
     const reader = new FileReader();
@@ -552,7 +558,7 @@ export default function Home() {
   }
 
   function editProfileName() {
-    const nextName = window.prompt("Как тебя называть?", profileName);
+    const nextName = window.prompt(language === "en" ? "What should we call you?" : "Как тебя называть?", profileName);
     if (nextName === null) return;
     const name = nextName.trim();
     if (!name) return;
@@ -561,7 +567,7 @@ export default function Home() {
   }
 
   return (
-    <main className="postie">
+    <LocalizedTree><main className="postie">
       <header className="topbar">
         <a className="brand" href="#" aria-label="Postie — главная">
           Post<span className="brand-i">ı<span className="brand-heart">♥</span></span>e
@@ -577,9 +583,7 @@ export default function Home() {
 </svg>
 
         </a>
-        <button className="icon-button language-button" type="button" aria-label="Язык: русский. Смена языка появится позже" title="Смена языка появится позже">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
-        </button>
+        <LanguageSwitcher />
       </header>
 
       <section className="intro">
@@ -720,7 +724,7 @@ export default function Home() {
           {mailboxLoading && <p className="catalog-message">Открываю отправленные…</p>}
           {mailboxError && <p className="catalog-message">{mailboxError} <a href="/auth">Войти или создать аккаунт</a></p>}
           {!mailboxLoading && !mailboxError && mailboxCards.length === 0 && <p className="catalog-message">Здесь появятся открытки, которые ты отправишь.</p>}
-          {mailboxCards.map((card) => <article className="mail-item" key={card.id}><button type="button" className="mail-item-open" onClick={() => void openMailCard(card)}><img src={card.image} alt="" /><div><strong>{card.contactName || "Ссылка-приглашение"}</strong><span>{card.frontCaption || card.title}</span><small>{new Date(card.createdAt).toLocaleDateString("ru-RU")}</small><small className="delivery-status">✓　{card.contactName ? (card.openedAt ? "Открыта" : "Нажми, чтобы открыть") : "Нажми, чтобы посмотреть"}</small></div></button>{card.shareUrl && <button type="button" className="mail-share" onClick={async () => { if (navigator.share) await navigator.share({ title: "Открытка Postie", text: "Для тебя есть открытка!", url: card.shareUrl! }); else await navigator.clipboard.writeText(card.shareUrl!); }}>Поделиться</button>}</article>)}
+          {mailboxCards.map((card) => <article className="mail-item" key={card.id}><button type="button" className="mail-item-open" onClick={() => void openMailCard(card)}><img src={card.image} alt="" /><div><strong>{card.contactName || "Ссылка-приглашение"}</strong><span>{card.frontCaption || card.title}</span><small>{new Date(card.createdAt).toLocaleDateString(language === "en" ? "en-US" : "ru-RU")}</small><small className="delivery-status">✓　{card.contactName ? (card.openedAt ? "Открыта" : "Нажми, чтобы открыть") : "Нажми, чтобы посмотреть"}</small></div></button>{card.shareUrl && <button type="button" className="mail-share" onClick={async () => { if (navigator.share) await navigator.share({ title: "Открытка Postie", text: "Для тебя есть открытка!", url: card.shareUrl! }); else await navigator.clipboard.writeText(card.shareUrl!); }}>Поделиться</button>}</article>)}
         </section>
       )}
 
@@ -730,7 +734,7 @@ export default function Home() {
           {mailboxLoading && <p className="catalog-message">Открываю полученные…</p>}
           {mailboxError && <p className="catalog-message">{mailboxError} <a href="/auth">Войти или создать аккаунт</a></p>}
           {!mailboxLoading && !mailboxError && mailboxCards.length === 0 && <p className="catalog-message">Когда тебе отправят открытку, она появится здесь.</p>}
-          {mailboxCards.map((card) => <article className="mail-item" key={card.id}><button type="button" className="mail-item-open" onClick={() => void openMailCard(card)}><img src={card.image} alt="" /><div><strong>{card.contactName || "Друг Postie"}</strong><span>{card.frontCaption || card.title}</span><small>{new Date(card.createdAt).toLocaleDateString("ru-RU")}</small><small className="delivery-status">♥　{card.openedAt ? "Ты уже открыл эту открытку" : "Нажми, чтобы открыть"}</small></div></button></article>)}
+          {mailboxCards.map((card) => <article className="mail-item" key={card.id}><button type="button" className="mail-item-open" onClick={() => void openMailCard(card)}><img src={card.image} alt="" /><div><strong>{card.contactName || "Друг Postie"}</strong><span>{card.frontCaption || card.title}</span><small>{new Date(card.createdAt).toLocaleDateString(language === "en" ? "en-US" : "ru-RU")}</small><small className="delivery-status">♥　{card.openedAt ? "Ты уже открыл эту открытку" : "Нажми, чтобы открыть"}</small></div></button></article>)}
         </section>
       )}
 
@@ -756,7 +760,7 @@ export default function Home() {
           {archiveLoading && <p className="catalog-message">Открываю архив…</p>}
           {archiveError && <p className="catalog-message">{archiveError} <a href="/auth">Войти в аккаунт</a></p>}
           {!archiveLoading && !archiveError && archiveCards.length === 0 && <p className="catalog-message">Здесь будут храниться оцифрованные открытки. Добавь фотографии лицевой и обратной стороны.</p>}
-          <div className="archive-grid">{archiveCards.map((card) => <button type="button" className="archive-card" key={card.id} onClick={() => setSelectedArchive(card)}><img src={card.frontImage} alt="" /><strong>{card.title}</strong><small>{new Date(card.createdAt).toLocaleDateString("ru-RU")}</small></button>)}</div>
+          <div className="archive-grid">{archiveCards.map((card) => <button type="button" className="archive-card" key={card.id} onClick={() => setSelectedArchive(card)}><img src={card.frontImage} alt="" /><strong>{card.title}</strong><small>{new Date(card.createdAt).toLocaleDateString(language === "en" ? "en-US" : "ru-RU")}</small></button>)}</div>
         </section>
       )}
 
@@ -989,7 +993,7 @@ export default function Home() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      alert("Выберите изображение.");
+      alert(language === "en" ? "Choose an image." : "Выберите изображение.");
       return;
     }
 
@@ -1149,7 +1153,7 @@ export default function Home() {
       <button
         type="button"
         className="profile-link"
-        onClick={() => alert("Черновиков пока нет.")}
+        onClick={() => alert(language === "en" ? "No drafts yet." : "Черновиков пока нет.")}
       >
         <span>▧</span> Черновики <span>›</span>
       </button>
@@ -1165,7 +1169,7 @@ export default function Home() {
       <button
         type="button"
         className="profile-link"
-        onClick={() => alert("Помощь Postie")}
+        onClick={() => alert(language === "en" ? "Postie help" : "Помощь Postie")}
       >
         <span>?</span> Помощь <span>›</span>
       </button>
@@ -1219,14 +1223,14 @@ export default function Home() {
   <div className="modal-backdrop" onClick={() => setSelectedArchive(null)}>
     <section className="create-modal opened-mail-modal archive-view-modal" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="modal-close" aria-label="Закрыть" onClick={() => setSelectedArchive(null)}>×</button>
-      <p className="eyebrow">ЛИЧНЫЙ АРХИВ · {new Date(selectedArchive.createdAt).toLocaleDateString("ru-RU")}</p><h2>{selectedArchive.title}</h2>
+      <p className="eyebrow">{language === "en" ? "PERSONAL ARCHIVE · " : "ЛИЧНЫЙ АРХИВ · "}{new Date(selectedArchive.createdAt).toLocaleDateString(language === "en" ? "en-US" : "ru-RU")}</p><h2>{selectedArchive.title}</h2>
       <Postcard3D className="archive-3d" onTap={(side) => setFullscreenCard({ side: side === "front" ? "Лицевая сторона" : "Обратная сторона", image: side === "front" ? selectedArchive.frontImage : selectedArchive.backImage })} front={<div className="archive-face"><img src={selectedArchive.frontImage} alt="Лицевая сторона старой открытки" /></div>} back={<div className="archive-face"><img src={selectedArchive.backImage} alt="Обратная сторона старой открытки" /></div>} />
       {selectedArchive.notes && <p className="archive-notes">{selectedArchive.notes}</p>}
     </section>
   </div>
 )}
 {fullscreenCard && <PostcardFullscreenViewer card={fullscreenCard} onClose={() => setFullscreenCard(null)} />}
-    </main>
+    </main></LocalizedTree>
   );
 }
 

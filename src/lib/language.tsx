@@ -1,0 +1,336 @@
+"use client";
+
+import { Children, cloneElement, createContext, isValidElement, useContext, useEffect, useState, type ReactNode } from "react";
+
+export type Language = "ru" | "en";
+
+const english: Record<string, string> = {
+  "МАЛЕНЬКИЙ ЖЕСТ. БОЛЬШОЕ ЧУВСТВО.": "A SMALL GESTURE. A BIG FEELING.",
+  "Отправь кому-то": "Send someone",
+  "что-то особенное.": "something special.",
+  "Создать открытку": "Create a postcard",
+  "КОЛЛЕКЦИЯ МОМЕНТОВ": "A COLLECTION OF MOMENTS",
+  "Привет из": "Greetings from",
+  "Море, горы и воспоминания.": "Sea, mountains, and memories.",
+  "Смотреть коллекцию ↗": "Explore the collection ↗",
+  "НАЙДИ СВОЮ": "FIND YOURS",
+  "Мои коллекции": "My collections",
+  "Избранное": "Favorites",
+  "Открытки": "Postcards",
+  "Все": "All",
+  "Мои фото": "My photos",
+  "⌕  Найти открытку...": "⌕  Find a postcard...",
+  "Фильтры каталога": "Catalog filters",
+  "Страна": "Country",
+  "Город": "City",
+  "Фото": "Photo",
+  "фото": "photos",
+  "Стиль": "Style",
+  "Повод": "Occasion",
+  "Все страны": "All countries",
+  "Все города": "All cities",
+  "Все стили": "All styles",
+  "Любой повод": "Any occasion",
+  "Сортировка": "Sort",
+  "По умолчанию": "Default order",
+  "По названию": "By name",
+  "Сначала избранные": "Favorites first",
+  "＋ Изменить теги": "＋ Edit tags",
+  "Сохраняю…": "Saving…",
+  "Сохранить": "Save",
+  "Сохрани": "Save",
+  "Загружаю твои фотографии…": "Loading your photos…",
+  "В папке пока нет фотографий. Добавь JPG, PNG, WebP, AVIF или GIF в public/postcards.": "There are no photos here yet. Add JPG, PNG, WebP, AVIF, or GIF files to public/postcards.",
+  "ТВОИ ИСТОРИИ": "YOUR STORIES",
+  "Отправленные": "Sent",
+  "Полученные": "Received",
+  "Открываю отправленные…": "Loading sent postcards…",
+  "Открываю полученные…": "Loading received postcards…",
+  "Войти или создать аккаунт": "Sign in or create an account",
+  "Не удалось загрузить теги каталога.": "Could not load catalog tags.",
+  "Редактировать теги может только владелец каталога.": "Only the catalog owner can edit tags.",
+  "Не удалось прочитать теги.": "Could not read the tags.",
+  "Некорректная открытка.": "Invalid postcard.",
+  "Открытка не найдена в каталоге.": "Postcard not found in the catalog.",
+  "Не удалось сохранить теги.": "Could not save the tags.",
+  "Пожалуйста, выбери изображение.": "Please choose an image.",
+  "Для архива выбери изображение JPG, PNG или WebP.": "Choose a JPG, PNG, or WebP image for the archive.",
+  "Размер каждой стороны должен быть меньше 12 МБ.": "Each side must be smaller than 12 MB.",
+  "Добавь фотографии обеих сторон открытки.": "Add photos of both sides of the postcard.",
+  "Не удалось выйти из аккаунта.": "Could not sign out.",
+  "Выберите изображение.": "Choose an image.",
+  "Сбросить кадрирование": "Reset crop",
+  "Готово": "Done",
+  "Текст поздравления": "Message",
+  "Подпись на лицевой стороне · необязательно": "Front caption · optional",
+  "← Лицевая сторона": "← Front",
+  "Перевернуть открытку →": "Flip postcard →",
+  "Вернуться к каталогу": "Back to catalog",
+  "Для: ": "To: ",
+  "От: ": "From: ",
+  "по ссылке": "via link",
+  "друга Postie": "a Postie friend",
+  "Основная навигация": "Main navigation",
+  "Обратная сторона": "Back",
+  "Профиль": "Profile",
+  "Путешествия": "Travel",
+  "Моя коллекция воспоминаний": "My collection of memories",
+  "Оцифровать открытку": "Digitize a postcard",
+  "Например, открытка от бабушки": "For example, a postcard from Grandma",
+  "Заметка · необязательно": "Note · optional",
+  "Откуда открытка и когда получена?": "Where is it from, and when did you receive it?",
+  "Ссылка скопирована.": "Link copied.",
+  "Черновиков пока нет.": "No drafts yet.",
+  "Помощь Postie": "Postie help",
+  "Мои друзья ·": "My friends ·",
+  "Язык: русский. Смена языка появится позже": "Language: Russian. Switch to English",
+  "Переключить на английский": "Switch to English",
+  "Switch to Russian": "Switch to Russian",
+  "Здесь появятся открытки, которые ты отправишь.": "Postcards you send will appear here.",
+  "Когда тебе отправят открытку, она появится здесь.": "Postcards sent to you will appear here.",
+  "Открыта": "Opened",
+  "Нажми, чтобы открыть": "Tap to open",
+  "Нажми, чтобы посмотреть": "Tap to view",
+  "Поделиться": "Share",
+  "Поделиться ссылкой": "Share link",
+  "ТЁПЛЫЕ СЛОВА РЯДОМ": "WARM WORDS, CLOSE BY",
+  "ВАШ КРУГ": "YOUR CIRCLE",
+  "Друзья": "Friends",
+  "Добавить по почте аккаунта": "Add using account email",
+  "Отправить запрос": "Send request",
+  "Запросы тебе": "Requests for you",
+  "Принять": "Accept",
+  "Отклонить": "Decline",
+  "Новых запросов пока нет.": "No new requests yet.",
+  "Мои друзья": "My friends",
+  "Отправить открытку": "Send a postcard",
+  "Подтверждённые друзья появятся здесь.": "Confirmed friends will appear here.",
+  "Ожидают подтверждения": "Awaiting confirmation",
+  "Запрос отправлен": "Request sent",
+  "ТВОЯ СЕМЕЙНАЯ ИСТОРИЯ": "YOUR FAMILY HISTORY",
+  "Мои открытки": "My postcards",
+  "Открываю архив…": "Loading your archive…",
+  "Войти в аккаунт": "Sign in",
+  "Здесь будут храниться оцифрованные открытки. Добавь фотографии лицевой и обратной стороны.": "Your digitized postcards will be stored here. Add photos of the front and back.",
+  "Твоя фотография": "Your photo",
+  "Напиши что-нибудь тёплое...": "Write something warm...",
+  "ТВОЯ БУДУЩАЯ ОТКРЫТКА": "YOUR POSTCARD PREVIEW",
+  "Выбери этот дизайн для своей личной открытки.": "Choose this design for your personal postcard.",
+  "Выбрать дизайн →": "Choose this design →",
+  "С ЧЕГО НАЧНЁМ?": "WHERE SHALL WE START?",
+  "Создай свою Postie": "Create your Postie postcard",
+  "Выбери готовый дизайн или преврати собственное фото в открытку.": "Choose a ready-made design or turn your own photo into a postcard.",
+  "Выбрать готовую открытку": "Choose a ready-made postcard",
+  "Авторские дизайны и красивые места": "Original designs and beautiful places",
+  "Добавить своё фото": "Add your own photo",
+  "Создай открытку из личного момента": "Make a postcard from a personal moment",
+  "Оцифровать старую открытку": "Digitize an old postcard",
+  "Сохрани обе стороны в личном архиве": "Save both sides in your personal archive",
+  "ТВОЯ ЛИЧНАЯ ОТКРЫТКА": "YOUR PERSONAL POSTCARD",
+  "Почти готово!": "Almost ready!",
+  "Лицевая сторона открытки": "Postcard front",
+  "Здесь появится твоё поздравление…": "Your greeting will appear here…",
+  "С теплом ♡": "With love ♡",
+  "Например, наше лето в Грузии": "For example, our summer in Georgia",
+  "Перетащи надпись мышью или пальцем в нужное место открытки.": "Drag the caption to the right place on the postcard.",
+  "Настройки текста": "Text settings",
+  "Шрифт": "Font",
+  "Размер": "Size",
+  "Цвет": "Color",
+  "Начертание": "Text style",
+  "Выравнивание": "Alignment",
+  "Слева": "Left",
+  "По центру": "Center",
+  "Справа": "Right",
+  "Способ отправки": "Delivery method",
+  "Другу Postie": "To a Postie friend",
+  "Ссылка в мессенджер": "Messenger link",
+  "Кому отправить?": "Who should receive it?",
+  "Сначала добавь друга и дождись подтверждения.": "Add a friend and wait for them to accept first.",
+  "Открыть друзей": "Open friends",
+  "Открытку можно будет посмотреть по ссылке без регистрации.": "Anyone with the link can view the postcard without signing up.",
+  "Отправляю…": "Sending…",
+  "Скопировать ссылку": "Copy link",
+  "Отправить в мессенджер": "Send in messenger",
+  "Настройки профиля": "Profile settings",
+  "Твой близкий человек": "Someone close to you",
+  "От": "From",
+  "Загрузить фото профиля": "Upload profile photo",
+  "Мой профиль": "My profile",
+  "Аккаунт Postie подключён": "Postie account connected",
+  "Выйти из аккаунта": "Sign out",
+  "Войти или создать аккаунт Postie": "Sign in or create a Postie account",
+  "Отправлено": "Sent",
+  "Получено": "Received",
+  "Коллекций": "Collections",
+  "Выбрать другое фото": "Choose another photo",
+  "Черновики": "Drafts",
+  "Настройки": "Settings",
+  "Помощь": "Help",
+  "Главная": "Home",
+  "ТЕКСТ ОТКРЫТКИ": "POSTCARD MESSAGE",
+  "ТЕБЕ ПРИШЛА ОТКРЫТКА": "YOU RECEIVED A POSTCARD",
+  "Пусть этот момент останется с тобой.": "May this moment stay with you.",
+  "Посмотреть лицевую сторону": "View the front",
+  "Прочитать поздравление": "Read the message",
+  "ЛИЧНЫЙ АРХИВ": "PERSONAL ARCHIVE",
+  "Сфотографируй обе стороны. Открытка сохранится только в твоём профиле.": "Take a photo of both sides. The postcard will be saved in your profile only.",
+  "Добавить фото": "Add photo",
+  "Название": "Title",
+  "Сохранить в «Мои открытки»": "Save to My postcards",
+  "Закрыть": "Close",
+  "С чего начнём?": "Where shall we start?",
+  "Открытка сохранена в «Мои открытки».": "Postcard saved to My postcards.",
+  "Назад": "Back",
+  "Проверить": "Check",
+  "Сначала войдите в аккаунт": "Please sign in first",
+  "Запрос отправлен. Друг появится в списке после подтверждения.": "Request sent. Your friend will appear after they accept.",
+  "Уже в друзьях.": "Already friends.",
+  "Проверь адрес электронной почты.": "Check the email address.",
+  "Войди в Postie, чтобы посмотреть друзей.": "Sign in to Postie to view friends.",
+  "Войди в Postie, чтобы отправить открытку.": "Sign in to Postie to send a postcard.",
+  "Тексты открытки": "Postcard text",
+  "Ваши друзья": "Your friends",
+  "Всё": "All",
+  "Закрыть открытку": "Close postcard",
+  "Закрыть полноэкранный просмотр": "Close fullscreen view",
+  "Щипок или колесо мыши — увеличить · перетаскивание — переместить": "Pinch or use the mouse wheel to zoom · drag to move",
+  "Уменьшить": "Zoom out",
+  "Сбросить увеличение": "Reset zoom",
+  "Увеличить": "Zoom in",
+  "Смена языка появится позже": "Switch language",
+  "Нажми, чтобы открыть на весь экран · проведи, чтобы повернуть": "Tap to open fullscreen · swipe to rotate",
+  "Проведи пальцем, чтобы повернуть": "Swipe to rotate",
+  "Лицевая сторона": "Front",
+  "Обратная сторона старой открытки": "Back of the old postcard",
+  "Лицевая сторона старой открытки": "Front of the old postcard",
+  "Теги": "Tags",
+  "Ошибка загрузки": "Loading error",
+  "Открытка пока не найдена": "Postcard not found",
+  "Возможно, ссылка устарела или владелец отключил общий доступ.": "The link may have expired, or the owner turned off sharing.",
+  "Посмотреть открытки": "Browse postcards",
+  "К открыткам": "Back to postcards",
+  "Ты уже с нами": "Welcome back",
+  "Продолжить": "Continue",
+  "ТВОИ ВОСПОМИНАНИЯ — ТЕПЕРЬ С ТОБОЙ": "YOUR MEMORIES — ALWAYS WITH YOU",
+  "Создать аккаунт": "Create an account",
+  "С возвращением": "Welcome back",
+  "Сохраняй открытки и отправляй их близким.": "Save postcards and send them to people you love.",
+  "Как тебя называть?": "What should we call you?",
+  "Имя": "Name",
+  "Электронная почта": "Email",
+  "Пароль": "Password",
+  "Не менее 8 символов": "At least 8 characters",
+  "Ссылка подтверждения устарела или уже использована. Попробуй войти или зарегистрироваться снова.": "That confirmation link has expired or was already used. Try signing in or signing up again.",
+  "Секунду…": "One moment…",
+  "Войти": "Sign in",
+  "Тебе пришла открытка": "You received a postcard",
+  "Создать свою открытку": "Create your own postcard",
+  "Ссылка-приглашение": "Invitation link",
+  "Друг Postie": "Postie friend",
+  "Изменить имя профиля": "Change profile name",
+  "Войди в аккаунт": "Sign in",
+  "Загружаю друзей…": "Loading friends…",
+  "Добавь теги каталога в Supabase, чтобы включить фильтры.": "Add catalog tags in Supabase to enable filters.",
+  "У тебя уже есть входящий запрос от этого аккаунта — подтверди его ниже.": "You already have an incoming request from this account. Accept it below.",
+  "Этот аккаунт уже в друзьях.": "This account is already your friend.",
+  "Войди в Postie, чтобы добавить друга.": "Sign in to Postie to add a friend.",
+  "Не удалось сохранить открытку.": "Could not save the postcard.",
+  "Не удалось загрузить открытки.": "Could not load postcards.",
+  "Не удалось прочитать каталог.": "Could not read the catalog.",
+  "Не удалось отправить открытку.": "Could not send the postcard.",
+  "Открытка уже отправлена.": "The postcard has already been sent.",
+  "Отправка готова.": "Your postcard is on its way.",
+  "Выберите друга.": "Choose a friend.",
+  "От ": "From ",
+  "Добавить фотографии обеих сторон открытки.": "Add photos of both sides of the postcard.",
+  "Ты вышел из аккаунта.": "You have signed out.",
+  "Не удалось выполнить вход.": "Could not sign in.",
+  "Сначала войди в аккаунт Postie.": "Please sign in to your Postie account first.",
+  "Фото ": "Photo ",
+  "Открытка ": "Postcard ",
+  "Фото 1": "Photo 1",
+  "Открытка 1": "Postcard 1",
+  "Почти готово! Перейди по ссылке подтверждения в письме, чтобы активировать аккаунт.": "Almost done! Follow the confirmation link in your email to activate your account.",
+  "Supabase пока не подключён. Скопируй .env.example в .env.local, добавь данные проекта Supabase и перезапусти приложение.": "Supabase is not connected yet. Copy .env.example to .env.local, add your Supabase project details, and restart the app.",
+  "Уже есть аккаунт? Войти": "Already have an account? Sign in",
+  "Впервые в Postie? Создать аккаунт": "New to Postie? Create an account",
+  "ЛИЧНЫЙ АРХИВ ·": "PERSONAL ARCHIVE ·",
+  "← К открыткам": "← Back to postcards",
+  "С теплом ♡ ·": "With love ♡ ·",
+  "Для:": "To:",
+  "От:": "From:",
+  "Масштаб": "Zoom",
+  "По горизонтали": "Horizontal position",
+  "По вертикали": "Vertical position",
+  "Ж": "B",
+  "К": "I",
+  "Открытка отправлена другу в Postie.": "Postcard sent to your Postie friend.",
+  "Ссылка на открытку готова — отправь её в мессенджере.": "Your postcard link is ready. Share it in a messenger.",
+  "Ты уже открыл эту открытку": "You have already opened this postcard",
+  "Не получилось загрузить каталог фотографий.": "Could not load the postcard catalog.",
+  "Не получилось загрузить фотографии.": "Could not load the photos.",
+  "Не удалось открыть почту.": "Could not open your mailbox.",
+  "Не удалось открыть архив.": "Could not open the archive.",
+  "Не удалось обработать запрос.": "Could not process the request.",
+  "Войди в аккаунт Postie, чтобы сохранить открытку в архив.": "Sign in to Postie to save a postcard to your archive.",
+};
+
+type LanguageContextValue = { language: Language; toggleLanguage: () => void };
+const LanguageContext = createContext<LanguageContextValue>({ language: "ru", toggleLanguage: () => {} });
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguage] = useState<Language>("ru");
+  useEffect(() => {
+    const saved = window.localStorage.getItem("postie-language");
+    if (saved === "en" || saved === "ru") setLanguage(saved);
+  }, []);
+  useEffect(() => {
+    window.localStorage.setItem("postie-language", language);
+    document.documentElement.lang = language;
+    document.title = language === "en" ? "Postie — postcards from your moments" : "Postie — открытки из ваших моментов";
+  }, [language]);
+  const toggleLanguage = () => setLanguage((value) => value === "ru" ? "en" : "ru");
+  return <LanguageContext.Provider value={{ language, toggleLanguage }}>{children}</LanguageContext.Provider>;
+}
+
+export function useLanguage() { return useContext(LanguageContext); }
+
+export function LanguageSwitcher() {
+  const { language, toggleLanguage } = useLanguage();
+  const label = language === "ru" ? "Переключить на английский" : "Switch to Russian";
+  return <button className="icon-button language-button" type="button" aria-label={label} title={label} onClick={toggleLanguage}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+  </button>;
+}
+
+function translate(value: string, language: Language) {
+  if (language !== "en") return value;
+  const trimmed = value.trim();
+  if (trimmed.startsWith("Вход выполнен для ")) return value.replace(trimmed, `Signed in as ${trimmed.slice("Вход выполнен для ".length)}`);
+  if (trimmed.startsWith("Выбрать открытку ")) return value.replace(trimmed, `Choose postcard ${trimmed.slice("Выбрать открытку ".length)}`);
+  if (trimmed.startsWith("Аватар ")) return value.replace(trimmed, `Avatar ${trimmed.slice("Аватар ".length)}`);
+  if (trimmed.startsWith("Для: ")) return value.replace(trimmed, `To: ${trimmed.slice(5)}`);
+  if (trimmed.startsWith("От: ")) return value.replace(trimmed, `From: ${trimmed.slice(4)}`);
+  if (trimmed.startsWith("От ")) return value.replace(trimmed, `From ${trimmed.slice(3)}`);
+  const translated = english[trimmed] ?? trimmed.replace(/^(Фото|Открытка) (\d+)$/, (_match, kind: string, number: string) => `${kind === "Фото" ? "Photo" : "Postcard"} ${number}`);
+  return value === trimmed ? translated : value.replace(trimmed, translated);
+}
+
+function translateNode(node: ReactNode, language: Language): ReactNode {
+  if (typeof node === "string") return translate(node, language);
+  if (Array.isArray(node)) return Children.map(node, (child) => translateNode(child, language));
+  if (!isValidElement<{ children?: ReactNode }>(node)) return node;
+  const props = node.props as typeof node.props & Record<string, unknown>;
+  const nextProps: Record<string, unknown> = {};
+  for (const attribute of ["aria-label", "title", "placeholder", "alt"]) {
+    if (typeof props[attribute] === "string") nextProps[attribute] = translate(props[attribute] as string, language);
+  }
+  if (props.children !== undefined) nextProps.children = translateNode(props.children, language);
+  return cloneElement(node, nextProps);
+}
+
+export function LocalizedTree({ children }: { children: ReactNode }) {
+  const { language } = useLanguage();
+  return <>{translateNode(children, language)}</>;
+}

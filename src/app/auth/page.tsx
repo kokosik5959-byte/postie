@@ -4,10 +4,15 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { LanguageProvider, LanguageSwitcher, LocalizedTree } from "@/lib/language";
 
 type Mode = "sign-in" | "sign-up";
 
 export default function AuthPage() {
+  return <LanguageProvider><AuthPageContent /></LanguageProvider>;
+}
+
+function AuthPageContent() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("sign-up");
   const [name, setName] = useState("");
@@ -79,10 +84,10 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="postie auth-screen">
+    <LocalizedTree><main className="postie auth-screen">
       <Link className="auth-back" href="/">← К открыткам</Link>
       <div className="auth-card">
-        <p className="brand auth-brand">Post<span className="brand-i">ı<span className="brand-heart">♥</span></span>e</p>
+        <div className="auth-brand-row"><p className="brand auth-brand">Post<span className="brand-i">ı<span className="brand-heart">♥</span></span>e</p><LanguageSwitcher /></div>
         {accountEmail ? (
           <>
             <h1>Ты уже с нами</h1>
@@ -116,6 +121,6 @@ export default function AuthPage() {
           </>
         )}
       </div>
-    </main>
+    </main></LocalizedTree>
   );
 }

@@ -1678,6 +1678,8 @@ body {
   text-decoration: none;
 }
 
+.shared-header-row { display: flex; align-items: center; justify-content: space-between; }
+
 .auth-card {
   width: 100%;
   max-width: 360px;
@@ -1692,6 +1694,9 @@ body {
   font: italic 600 35px/1 Georgia, serif;
   letter-spacing: -2px;
 }
+
+.auth-brand-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+.auth-brand-row .auth-brand { margin-bottom: 0; }
 
 .auth-card h1,
 .shared-postcard h1,
