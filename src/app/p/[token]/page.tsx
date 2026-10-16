@@ -5,7 +5,7 @@ type SharedPostcardPageProps = { params: Promise<{ token: string }> };
 
 export default async function SharedPostcardPage({ params }: SharedPostcardPageProps) {
   const { token } = await params;
-  let card: { title: string; image_path: string; front_caption: string; message: string; sender_id: string } | null = null;
+  let card: { id: string; title: string; image_path: string; front_caption: string; message: string; sender_id: string } | null = null;
   let senderName = "Твой близкий человек";
   let imageUrl = "";
 
