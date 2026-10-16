@@ -239,6 +239,8 @@ input:focus-visible {
   font-size: 30px;
 }
 
+.language-button { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 9px; font-weight: 700; }
+
 .intro {
   padding: 30px 0 25px;
 }
@@ -1136,6 +1138,14 @@ body {
 }
 
 .category-chip.active { background: var(--coral); }
+
+.catalog-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: -3px 0 14px; }
+.catalog-filters select { min-width: 0; max-width: 100%; padding: 8px 24px 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #fffaf2; color: #5c544b; font: inherit; font-size: 10px; }
+.postcard-tag-editor { margin-top: 7px; color: #7d7264; font-size: 10px; }
+.postcard-tag-editor summary { width: fit-content; cursor: pointer; }
+.postcard-tag-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 8px 0; }
+.postcard-tag-fields label { display: grid; gap: 3px; }
+.postcard-tag-fields input { width: 100%; min-width: 0; padding: 6px 7px; border: 1px solid var(--line); border-radius: 7px; background: #fffaf2; color: var(--ink); font: inherit; font-size: 10px; }
 
 .postcard-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));

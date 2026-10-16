@@ -11,6 +11,7 @@ type Postcard = {
   category: string;
   image: string;
 };
+type PostcardTags = { country: string; city: string; style: string; occasion: string };
 
 type MailCard = {
   id: string;
@@ -260,6 +261,12 @@ export default function Home() {
   const [showBack, setShowBack] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
+  const [postcardTags, setPostcardTags] = useState<Record<string, PostcardTags>>({});
+  const [countryFilter, setCountryFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [styleFilter, setStyleFilter] = useState("");
+  const [occasionFilter, setOccasionFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"default" | "title" | "favorites">("default");
   const [visibleCount, setVisibleCount] = useState(24);
   const [mailboxCards, setMailboxCards] = useState<MailCard[]>([]);
   const [mailboxError, setMailboxError] = useState("");
@@ -288,22 +295,46 @@ export default function Home() {
   const [archiveError, setArchiveError] = useState("");
   const [selectedArchive, setSelectedArchive] = useState<ArchivedPostcard | null>(null);
   const [fullscreenCard, setFullscreenCard] = useState<FullscreenPostcardSide | null>(null);
+  useEffect(() => {
+    try {
+      const savedTags = window.localStorage.getItem("postie-postcard-tags");
+      if (savedTags) setPostcardTags(JSON.parse(savedTags) as Record<string, PostcardTags>);
+    } catch { /* Ignore invalid local tag data and use empty tags. */ }
+  }, []);
+  const tagValues = (key: keyof PostcardTags) => [...new Set(Object.values(postcardTags).map((tags) => tags[key].trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ru"));
  const filtered = postcards.filter((card) => {
   const matchesCategory =
     category === "Все" || card.category === category;
-  const matchesSearch = card.title
-    .toLowerCase()
-    .includes(search.trim().toLowerCase());
+  const tags = postcardTags[card.id] ?? { country: "", city: "", style: "", occasion: "" };
+  const searchable = [card.title, ...Object.values(tags)].join(" ").toLowerCase();
+  const matchesSearch = searchable.includes(search.trim().toLowerCase());
   const matchesFavorites =
     !showFavoritesOnly || favorites.includes(card.id);
-
-  return matchesCategory && matchesSearch && matchesFavorites;
+  return matchesCategory && matchesSearch && matchesFavorites
+    && (!countryFilter || tags.country === countryFilter)
+    && (!cityFilter || tags.city === cityFilter)
+    && (!styleFilter || tags.style === styleFilter)
+    && (!occasionFilter || tags.occasion === occasionFilter);
 });
-  const visiblePostcards = filtered.slice(0, visibleCount);
+  const sortedPostcards = [...filtered].sort((a, b) => {
+    if (sortBy === "title") return a.title.localeCompare(b.title, "ru");
+    if (sortBy === "favorites") return Number(favorites.includes(b.id)) - Number(favorites.includes(a.id)) || a.title.localeCompare(b.title, "ru");
+    return 0;
+  });
+  const visiblePostcards = sortedPostcards.slice(0, visibleCount);
 
   useEffect(() => {
     setVisibleCount(24);
-  }, [category, search, showFavoritesOnly]);
+  }, [category, search, showFavoritesOnly, countryFilter, cityFilter, styleFilter, occasionFilter, sortBy]);
+
+  function updatePostcardTag(cardId: string, key: keyof PostcardTags, value: string) {
+    setPostcardTags((current) => {
+      const existing = current[cardId] ?? { country: "", city: "", style: "", occasion: "" };
+      const next = { ...current, [cardId]: { ...existing, [key]: value } };
+      window.localStorage.setItem("postie-postcard-tags", JSON.stringify(next));
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (activeView !== "sent" && activeView !== "received") return;
@@ -520,12 +551,8 @@ export default function Home() {
 </svg>
 
         </a>
-        <button
-          className="icon-button"
-          aria-label="Поиск"
-          onClick={() => document.getElementById("catalog-search")?.focus()}
-        >
-          ⌕
+        <button className="icon-button language-button" type="button" aria-label="Язык: русский. Смена языка появится позже" title="Смена языка появится позже">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg><span>RU</span>
         </button>
       </header>
 
@@ -593,6 +620,14 @@ export default function Home() {
           ))}
         </div>
 
+        <div className="catalog-filters" aria-label="Фильтры каталога">
+          <select aria-label="Страна" value={countryFilter} onChange={(event) => setCountryFilter(event.target.value)}><option value="">Все страны</option>{tagValues("country").map((value) => <option key={value}>{value}</option>)}</select>
+          <select aria-label="Город" value={cityFilter} onChange={(event) => setCityFilter(event.target.value)}><option value="">Все города</option>{tagValues("city").map((value) => <option key={value}>{value}</option>)}</select>
+          <select aria-label="Стиль открытки" value={styleFilter} onChange={(event) => setStyleFilter(event.target.value)}><option value="">Все стили</option>{tagValues("style").map((value) => <option key={value}>{value}</option>)}</select>
+          <select aria-label="Повод" value={occasionFilter} onChange={(event) => setOccasionFilter(event.target.value)}><option value="">Любой повод</option>{tagValues("occasion").map((value) => <option key={value}>{value}</option>)}</select>
+          <select aria-label="Сортировка" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}><option value="default">По умолчанию</option><option value="title">По названию</option><option value="favorites">Сначала избранные</option></select>
+        </div>
+
         <div className="postcard-grid">
           {visiblePostcards.map((card) => (
             <article
@@ -630,6 +665,12 @@ export default function Home() {
                 </button>
               </div>
               <p className="card-category">{card.category}</p>
+              <details className="postcard-tag-editor">
+                <summary>＋ Теги</summary>
+                <div className="postcard-tag-fields">
+                  {([["country", "Страна"], ["city", "Город"], ["style", "Стиль"], ["occasion", "Повод"]] as const).map(([key, label]) => <label key={key}>{label}<input value={postcardTags[card.id]?.[key] ?? ""} onChange={(event) => updatePostcardTag(card.id, key, event.target.value)} placeholder={label} /></label>)}
+                </div>
+              </details>
             </article>
           ))}
         </div>
