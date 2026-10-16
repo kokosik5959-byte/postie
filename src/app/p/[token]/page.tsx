@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const instant = false;
+
 type SharedPostcardPageProps = { params: Promise<{ token: string }> };
 
 export default async function SharedPostcardPage({ params }: SharedPostcardPageProps) {
