@@ -65,6 +65,101 @@ function AppIcon({ name }: { name: AppIconName }) {
 
 const categories = ["Все", "Мои фото"];
 
+function ArchiveImageFullscreen({ image, side, onClose }: { image: string; side: "front" | "back"; onClose: () => void }) {
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+  const offsetRef = useRef({ x: 0, y: 0 });
+  const stageRef = useRef<HTMLDivElement>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  function setPan(x: number, y: number, currentZoom = zoomRef.current) {
+    const bounds = stageRef.current?.getBoundingClientRect();
+    const maxX = bounds ? (bounds.width * (currentZoom - 1)) / 2 : 0;
+    const maxY = bounds ? (bounds.height * (currentZoom - 1)) / 2 : 0;
+    const next = { x: Math.max(-maxX, Math.min(maxX, x)), y: Math.max(-maxY, Math.min(maxY, y)) };
+    offsetRef.current = next;
+    setOffset(next);
+  }
+
+  function changeZoom(nextZoom: number) {
+    const next = Math.max(1, Math.min(5, nextZoom));
+    zoomRef.current = next;
+    setZoom(next);
+    if (next === 1) setPan(0, 0, next);
+    else setPan(offsetRef.current.x, offsetRef.current.y, next);
+  }
+
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    const previous = pointers.current.get(event.pointerId);
+    if (!previous) return;
+    const dx = event.clientX - previous.x;
+    const dy = event.clientY - previous.y;
+
+    if (pointers.current.size >= 2) {
+      const previousPoints = [...pointers.current.entries()].slice(0, 2);
+      const nextPoints = previousPoints.map(([pointerId, point]) => pointerId === event.pointerId ? { x: event.clientX, y: event.clientY } : point);
+      const beforeDistance = Math.hypot(previousPoints[0][1].x - previousPoints[1][1].x, previousPoints[0][1].y - previousPoints[1][1].y);
+      const afterDistance = Math.hypot(nextPoints[0].x - nextPoints[1].x, nextPoints[0].y - nextPoints[1].y);
+      if (beforeDistance > 0) changeZoom(zoomRef.current * (afterDistance / beforeDistance));
+    } else if (zoomRef.current > 1) {
+      setPan(offsetRef.current.x + dx, offsetRef.current.y + dy);
+    }
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  }
+
+  function endPointer(event: PointerEvent<HTMLDivElement>) {
+    pointers.current.delete(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  return (
+    <div className="archive-lightbox" role="dialog" aria-modal="true" aria-label={side === "front" ? "Лицевая сторона открытки на весь экран" : "Обратная сторона открытки на весь экран"} onClick={onClose}>
+      <header className="archive-lightbox-header" onClick={(event) => event.stopPropagation()}>
+        <strong>{side === "front" ? "Лицевая сторона" : "Обратная сторона"}</strong>
+        <button type="button" className="archive-lightbox-close" aria-label="Закрыть полноэкранный просмотр" onClick={onClose}>×</button>
+      </header>
+      <div
+        ref={stageRef}
+        className="archive-lightbox-stage"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endPointer}
+        onPointerCancel={endPointer}
+        onWheel={(event) => {
+          event.preventDefault();
+          changeZoom(zoomRef.current * Math.exp(-event.deltaY * 0.002));
+        }}
+      >
+        <img src={image} alt={side === "front" ? "Лицевая сторона старой открытки" : "Обратная сторона старой открытки"} draggable={false} style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }} />
+      </div>
+      <footer className="archive-lightbox-controls" onClick={(event) => event.stopPropagation()}>
+        <span>Щипок или колесо мыши — увеличить · перетаскивание — переместить</span>
+        <div>
+          <button type="button" aria-label="Уменьшить" onClick={() => changeZoom(zoomRef.current / 1.5)}>−</button>
+          <button type="button" aria-label="Сбросить увеличение" onClick={() => changeZoom(1)}>{Math.round(zoom * 100)}%</button>
+          <button type="button" aria-label="Увеличить" onClick={() => changeZoom(zoomRef.current * 1.5)}>＋</button>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
 export default function Home() {
   const [postcards, setPostcards] = useState<Postcard[]>([]);
   const [photosLoading, setPhotosLoading] = useState(true);
@@ -189,6 +284,7 @@ export default function Home() {
   const [archiveLoading, setArchiveLoading] = useState(true);
   const [archiveError, setArchiveError] = useState("");
   const [selectedArchive, setSelectedArchive] = useState<ArchivedPostcard | null>(null);
+  const [fullscreenArchive, setFullscreenArchive] = useState<{ image: string; side: "front" | "back" } | null>(null);
  const filtered = postcards.filter((card) => {
   const matchesCategory =
     category === "Все" || card.category === category;
@@ -1055,11 +1151,12 @@ export default function Home() {
     <section className="create-modal opened-mail-modal archive-view-modal" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="modal-close" aria-label="Закрыть" onClick={() => setSelectedArchive(null)}>×</button>
       <p className="eyebrow">ЛИЧНЫЙ АРХИВ · {new Date(selectedArchive.createdAt).toLocaleDateString("ru-RU")}</p><h2>{selectedArchive.title}</h2>
-      <Postcard3D className="archive-3d" front={<div className="archive-face"><img src={selectedArchive.frontImage} alt="Лицевая сторона старой открытки" /></div>} back={<div className="archive-face"><img src={selectedArchive.backImage} alt="Обратная сторона старой открытки" /></div>} />
+      <Postcard3D className="archive-3d" onTap={(side) => setFullscreenArchive({ side, image: side === "front" ? selectedArchive.frontImage : selectedArchive.backImage })} front={<div className="archive-face"><img src={selectedArchive.frontImage} alt="Лицевая сторона старой открытки" /></div>} back={<div className="archive-face"><img src={selectedArchive.backImage} alt="Обратная сторона старой открытки" /></div>} />
       {selectedArchive.notes && <p className="archive-notes">{selectedArchive.notes}</p>}
     </section>
   </div>
 )}
+{fullscreenArchive && <ArchiveImageFullscreen image={fullscreenArchive.image} side={fullscreenArchive.side} onClose={() => setFullscreenArchive(null)} />}
     </main>
   );
 }

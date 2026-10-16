@@ -7,9 +7,10 @@ type Postcard3DProps = {
   back: ReactNode;
   className?: string;
   backVisible?: boolean;
+  onTap?: (side: "front" | "back") => void;
 };
 
-export default function Postcard3D({ front, back, className = "", backVisible = false }: Postcard3DProps) {
+export default function Postcard3D({ front, back, className = "", backVisible = false, onTap }: Postcard3DProps) {
   const [rotation, setRotation] = useState({ x: -5, y: backVisible ? 180 : 0 });
   const drag = useRef<{ pointerId: number; x: number; y: number; moved: boolean } | null>(null);
   const expectedBack = useRef(backVisible);
@@ -44,6 +45,9 @@ export default function Postcard3D({ front, back, className = "", backVisible = 
       setRotation((current) => {
         return { x: Math.max(-28, Math.min(28, current.x * 0.3)), y: Math.round(current.y / 180) * 180 };
       });
+    } else if (onTap) {
+      const halfTurns = Math.round(rotation.y / 180);
+      onTap(Math.abs(halfTurns % 2) === 1 ? "back" : "front");
     }
   }
 
@@ -51,18 +55,28 @@ export default function Postcard3D({ front, back, className = "", backVisible = 
     <div className={`postcard-3d-scene ${className}`}>
       <div
         className="postcard-3d-rotator"
-        role="img"
-        aria-label="Открытка с лицевой и обратной сторонами. Проведи пальцем, чтобы вращать"
+        role={onTap ? "button" : "img"}
+        tabIndex={onTap ? 0 : undefined}
+        aria-label={onTap ? "Открытка с двух сторон. Нажми, чтобы открыть на весь экран; проведи, чтобы повернуть" : "Открытка с лицевой и обратной сторонами. Проведи пальцем, чтобы вращать"}
         onPointerDown={startDrag}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
-        onPointerCancel={endDrag}
+        onPointerCancel={(event) => {
+          if (drag.current?.pointerId === event.pointerId) drag.current = null;
+        }}
+        onKeyDown={(event) => {
+          if (onTap && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            const halfTurns = Math.round(rotation.y / 180);
+            onTap(Math.abs(halfTurns % 2) === 1 ? "back" : "front");
+          }
+        }}
         style={{ transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)` }}
       >
         <div className="postcard-3d-face postcard-3d-front">{front}</div>
         <div className="postcard-3d-face postcard-3d-back">{back}</div>
       </div>
-      <small className="postcard-3d-hint">Проведи пальцем, чтобы повернуть</small>
+      <small className="postcard-3d-hint">{onTap ? "Нажми, чтобы открыть на весь экран · проведи, чтобы повернуть" : "Проведи пальцем, чтобы повернуть"}</small>
     </div>
   );
 }
