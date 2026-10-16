@@ -1613,6 +1613,30 @@ body {
 }
 .profile-screen { padding-bottom: 0; }
 
+/* Preserve the complete postcard image instead of filling a fixed crop. */
+.editor-front .front-image-wrap img {
+  height: auto;
+  min-height: 0;
+  max-height: min(55vh, 480px);
+  aspect-ratio: auto;
+  object-fit: contain;
+  background: #fffaf1;
+}
+.opened-card-image img {
+  height: auto;
+  min-height: 0;
+  max-height: 65vh;
+  aspect-ratio: auto;
+  object-fit: contain;
+  background: #fffaf1;
+}
+.shared-image-wrap img {
+  height: auto;
+  max-height: min(65vh, 600px);
+  object-fit: contain;
+  background: #fffaf1;
+}
+
 .create-nav-item > span {
   width: 29px;
   height: 29px;
