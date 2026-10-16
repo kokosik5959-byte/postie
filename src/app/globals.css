@@ -1600,6 +1600,19 @@ body {
   .profile-bottom-nav button { min-width: 0; flex: 1 1 0; padding-inline: 1px; font-size: 8px; }
 }
 
+/* Keep the profile tabs at the bottom of the app frame while its content scrolls. */
+.profile-bottom-nav {
+  position: sticky;
+  bottom: 0;
+  flex: 0 0 72px;
+  margin-top: auto;
+  width: calc(100% + 40px);
+  margin-left: -20px;
+  background: #fffaf0f5;
+  backdrop-filter: blur(14px);
+}
+.profile-screen { padding-bottom: 0; }
+
 .create-nav-item > span {
   width: 29px;
   height: 29px;
