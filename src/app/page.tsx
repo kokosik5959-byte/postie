@@ -704,9 +704,6 @@ export default function Home() {
         <button className={`nav-item ${activeView === "received" ? "selected" : ""}`} onClick={() => setActiveView("received")}>
           <span><AppIcon name="received" /></span>Получено
         </button>
-        <button className={`nav-item ${activeView === "friends" ? "selected" : ""}`} onClick={() => setActiveView("friends")}>
-          <span><AppIcon name="friends" /></span>Друзья
-        </button>
         <button className="nav-item" onClick={() => setShowProfile(true)}>
           <span><AppIcon name="profile" /></span>Профиль
         </button>
@@ -1109,7 +1106,6 @@ export default function Home() {
       <button type="button" onClick={() => { setShowProfile(false); setActiveView("home"); }}><span><AppIcon name="home" /></span>Главная</button>
       <button type="button" onClick={() => { setShowProfile(false); setActiveView("sent"); }}><span><AppIcon name="sent" /></span>Отправленные</button>
       <button type="button" onClick={() => { setShowProfile(false); setActiveView("received"); }}><span><AppIcon name="received" /></span>Полученные</button>
-      <button type="button" onClick={() => { setShowProfile(false); setActiveView("friends"); }}><span><AppIcon name="friends" /></span>Друзья</button>
       <button type="button" className="active"><span><AppIcon name="profile" /></span>Профиль</button>
     </nav>
   </section>
