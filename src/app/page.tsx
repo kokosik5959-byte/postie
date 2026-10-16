@@ -29,6 +29,7 @@ type MailCard = {
 type Friend = { id: string; personId: string; name: string; createdAt: string };
 type FriendsData = { friends: Friend[]; incoming: Friend[]; outgoing: Friend[] };
 type ArchivedPostcard = { id: string; title: string; frontImage: string; backImage: string; notes: string; createdAt: string };
+type FullscreenPostcardSide = { side: string; image?: string; message?: string; caption?: { text: string; x: number; y: number } };
 type AppIconName = "home" | "sent" | "create" | "received" | "profile" | "friends";
 
 function AppIcon({ name }: { name: AppIconName }) {
@@ -65,7 +66,7 @@ function AppIcon({ name }: { name: AppIconName }) {
 
 const categories = ["Все", "Мои фото"];
 
-function ArchiveImageFullscreen({ image, side, onClose }: { image: string; side: "front" | "back"; onClose: () => void }) {
+function PostcardFullscreenViewer({ card, onClose }: { card: FullscreenPostcardSide; onClose: () => void }) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const zoomRef = useRef(1);
@@ -128,9 +129,9 @@ function ArchiveImageFullscreen({ image, side, onClose }: { image: string; side:
   }
 
   return (
-    <div className="archive-lightbox" role="dialog" aria-modal="true" aria-label={side === "front" ? "Лицевая сторона открытки на весь экран" : "Обратная сторона открытки на весь экран"} onClick={onClose}>
+    <div className="archive-lightbox" role="dialog" aria-modal="true" aria-label={`${card.side} открытки на весь экран`} onClick={onClose}>
       <header className="archive-lightbox-header" onClick={(event) => event.stopPropagation()}>
-        <strong>{side === "front" ? "Лицевая сторона" : "Обратная сторона"}</strong>
+        <strong>{card.side}</strong>
         <button type="button" className="archive-lightbox-close" aria-label="Закрыть полноэкранный просмотр" onClick={onClose}>×</button>
       </header>
       <div
@@ -146,7 +147,9 @@ function ArchiveImageFullscreen({ image, side, onClose }: { image: string; side:
           changeZoom(zoomRef.current * Math.exp(-event.deltaY * 0.002));
         }}
       >
-        <img src={image} alt={side === "front" ? "Лицевая сторона старой открытки" : "Обратная сторона старой открытки"} draggable={false} style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }} />
+        <div className="archive-lightbox-artwork" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}>
+          {card.image ? <div className="archive-lightbox-image-wrap"><img src={card.image} alt={card.side} draggable={false} />{card.caption && <span style={{ left: `${card.caption.x}%`, top: `${card.caption.y}%` }}>{card.caption.text}</span>}</div> : <article className="archive-lightbox-message"><span className="postmark">POSTIE</span><p>{card.message}</p><small>С теплом ♡</small></article>}
+        </div>
       </div>
       <footer className="archive-lightbox-controls" onClick={(event) => event.stopPropagation()}>
         <span>Щипок или колесо мыши — увеличить · перетаскивание — переместить</span>
@@ -284,7 +287,7 @@ export default function Home() {
   const [archiveLoading, setArchiveLoading] = useState(true);
   const [archiveError, setArchiveError] = useState("");
   const [selectedArchive, setSelectedArchive] = useState<ArchivedPostcard | null>(null);
-  const [fullscreenArchive, setFullscreenArchive] = useState<{ image: string; side: "front" | "back" } | null>(null);
+  const [fullscreenCard, setFullscreenCard] = useState<FullscreenPostcardSide | null>(null);
  const filtered = postcards.filter((card) => {
   const matchesCategory =
     category === "Все" || card.category === category;
@@ -731,7 +734,7 @@ export default function Home() {
             {photo ? (
               <>
                 <h2>Твоя фотография</h2>
-                <img className="photo-preview" src={photo} alt="Твоя открытка" />
+                <img className="photo-preview" src={photo} alt="Твоя открытка" onClick={() => setFullscreenCard({ image: photo, side: "Лицевая сторона" })} />
                 <label className="greeting-label">
   Текст поздравления
   <textarea
@@ -754,7 +757,7 @@ export default function Home() {
               <>
                 <p className="eyebrow">ТВОЯ БУДУЩАЯ ОТКРЫТКА</p>
                 <h2>{selected.title}</h2>
-                <img className="photo-preview" src={selected.image} alt={selected.title} />
+                <img className="photo-preview" src={selected.image} alt={selected.title} onClick={() => setFullscreenCard({ image: selected.image, side: "Лицевая сторона" })} />
                 <p>Выбери этот дизайн для своей личной открытки.</p>
                 <button
   className="primary-button full-button"
@@ -822,6 +825,7 @@ export default function Home() {
       <Postcard3D
         backVisible={showBack}
         className="editor-3d"
+        onTap={(side) => setFullscreenCard(side === "front" ? { side: "Лицевая сторона", image: photo || selected?.image || undefined, caption: frontCaption.trim() ? { text: frontCaption, x: frontCaptionX, y: frontCaptionY } : undefined } : { side: "Обратная сторона", message: greeting || "Здесь появится твоё поздравление…" })}
         front={<div className="editor-face-front"><div className="front-image-wrap">{photo ? <img src={photo} alt="Лицевая сторона открытки" /> : selected ? <img src={selected.image} alt={selected.title} /> : null}{frontCaption.trim() && <p className="front-caption-overlay" onPointerDown={(event) => { event.stopPropagation(); captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={(event) => { event.stopPropagation(); captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>{frontCaption}</p>}</div></div>}
         back={<div className="editor-face-back"><span className="postmark">POSTIE</span><p>{greeting || "Здесь появится твоё поздравление…"}</p><span className="signature">С теплом ♡</span></div>}
       />
@@ -1120,6 +1124,7 @@ export default function Home() {
       <Postcard3D
         backVisible={mailBackVisible}
         className="opened-card-3d"
+        onTap={(side) => setFullscreenCard(side === "front" ? { side: "Лицевая сторона", image: selectedMail.image, caption: selectedMail.frontCaption.trim() ? { text: selectedMail.frontCaption, x: selectedMail.frontCaptionX, y: selectedMail.frontCaptionY } : undefined } : { side: "Обратная сторона", message: selectedMail.message || "Пусть этот момент останется с тобой." })}
         front={<div className="opened-card-image"><img src={selectedMail.image} alt={selectedMail.frontCaption || selectedMail.title} />{selectedMail.frontCaption.trim() && <span style={{ left: `${selectedMail.frontCaptionX}%`, top: `${selectedMail.frontCaptionY}%` }}>{selectedMail.frontCaption}</span>}</div>}
         back={<div className="opened-card-message"><span className="postmark">POSTIE</span><p>{selectedMail.message || "Пусть этот момент останется с тобой."}</p><small>С теплом ♡</small></div>}
       />
@@ -1151,12 +1156,12 @@ export default function Home() {
     <section className="create-modal opened-mail-modal archive-view-modal" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="modal-close" aria-label="Закрыть" onClick={() => setSelectedArchive(null)}>×</button>
       <p className="eyebrow">ЛИЧНЫЙ АРХИВ · {new Date(selectedArchive.createdAt).toLocaleDateString("ru-RU")}</p><h2>{selectedArchive.title}</h2>
-      <Postcard3D className="archive-3d" onTap={(side) => setFullscreenArchive({ side, image: side === "front" ? selectedArchive.frontImage : selectedArchive.backImage })} front={<div className="archive-face"><img src={selectedArchive.frontImage} alt="Лицевая сторона старой открытки" /></div>} back={<div className="archive-face"><img src={selectedArchive.backImage} alt="Обратная сторона старой открытки" /></div>} />
+      <Postcard3D className="archive-3d" onTap={(side) => setFullscreenCard({ side: side === "front" ? "Лицевая сторона" : "Обратная сторона", image: side === "front" ? selectedArchive.frontImage : selectedArchive.backImage })} front={<div className="archive-face"><img src={selectedArchive.frontImage} alt="Лицевая сторона старой открытки" /></div>} back={<div className="archive-face"><img src={selectedArchive.backImage} alt="Обратная сторона старой открытки" /></div>} />
       {selectedArchive.notes && <p className="archive-notes">{selectedArchive.notes}</p>}
     </section>
   </div>
 )}
-{fullscreenArchive && <ArchiveImageFullscreen image={fullscreenArchive.image} side={fullscreenArchive.side} onClose={() => setFullscreenArchive(null)} />}
+{fullscreenCard && <PostcardFullscreenViewer card={fullscreenCard} onClose={() => setFullscreenCard(null)} />}
     </main>
   );
 }

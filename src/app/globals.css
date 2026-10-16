@@ -1779,12 +1779,19 @@ body {
 .archive-lightbox-close { width: 42px; height: 42px; flex: 0 0 auto; border: 1px solid #fffaf166; border-radius: 50%; background: #fffaf11a; color: #fffaf1; font-size: 25px; }
 .archive-lightbox-stage { display: grid; flex: 1 1 auto; min-height: 0; place-items: center; overflow: hidden; touch-action: none; cursor: grab; }
 .archive-lightbox-stage:active { cursor: grabbing; }
-.archive-lightbox-stage img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.archive-lightbox-artwork { position: relative; display: grid; width: 100%; height: 100%; place-items: center; transform-origin: center; }
+.archive-lightbox-image-wrap { position: relative; display: grid; max-width: 100%; max-height: 100%; place-items: center; }
+.archive-lightbox-image-wrap img { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.archive-lightbox-image-wrap > span { position: absolute; max-width: 84%; padding: 4px 7px; transform: translate(-50%, -50%); color: white; font: italic 24px/1.2 Georgia, serif; text-align: center; text-shadow: 0 2px 6px #000c; overflow-wrap: anywhere; pointer-events: none; }
+.archive-lightbox-message { display: flex; width: min(86vw, 440px); min-height: min(50vh, 500px); flex-direction: column; justify-content: center; padding: 30px; border: 10px solid #fffaf1; background: repeating-linear-gradient(0deg, transparent, transparent 31px, #d8cbb8 32px), #fffaf1; color: var(--ink); text-align: center; }
+.archive-lightbox-message p { margin: 24px 0; font: italic 22px/1.6 Georgia, serif; overflow-wrap: anywhere; white-space: pre-wrap; }
+.archive-lightbox-message small { color: var(--muted); }
 .archive-lightbox-controls { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 14px; }
 .archive-lightbox-controls > span { max-width: 230px; color: #fffaf1b8; font-size: 11px; line-height: 1.45; }
 .archive-lightbox-controls > div { display: flex; align-items: center; gap: 7px; }
 .archive-lightbox-controls button { min-width: 42px; height: 40px; border: 1px solid #fffaf166; border-radius: 12px; background: #fffaf11a; color: #fffaf1; font-size: 15px; }
 .archive-lightbox-controls button:nth-child(2) { min-width: 64px; font-size: 12px; }
+.photo-preview { cursor: zoom-in; }
 .archive-notes { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; white-space: pre-wrap; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .shared-sender { color: var(--muted); font-size: 12px; }
 .shared-postcard h2 { margin: 14px 0; color: var(--ink); font: italic 500 22px/1.25 Georgia, serif; }
