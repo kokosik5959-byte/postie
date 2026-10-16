@@ -505,10 +505,9 @@ export default function Home() {
 
   return (
     <main className="postie">
-      <div className="phone-status" aria-hidden="true"><span>9:41</span><span>●●●　◖　▰</span></div>
       <header className="topbar">
         <a className="brand" href="#" aria-label="Postie — главная">
-          Postie<span className="brand-heart">♥</span>
+          Post<span className="brand-i">i<span className="brand-heart">♥</span></span>e
 
 <svg
   className="brand-lines"

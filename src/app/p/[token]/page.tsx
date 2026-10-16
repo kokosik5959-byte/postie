@@ -38,7 +38,6 @@ export default async function SharedPostcardPage({ params }: SharedPostcardPageP
 
   return (
     <main className="postie shared-screen">
-      <div className="phone-status" aria-hidden="true"><span>9:41</span><span>●●●　◖　▰</span></div>
       <Link className="auth-back" href="/">← Postie</Link>
       {card && imageUrl ? (
         <article className="shared-postcard">

@@ -203,12 +203,16 @@ input:focus-visible {
   letter-spacing: -2px;
 }
 
+.brand-i { position: relative; display: inline-block; }
+
 .brand-heart {
   position: absolute;
-  top: -2px;
-  right: 20px;
+  top: -0.28em;
+  left: 50%;
+  transform: translateX(-50%);
   color: var(--coral);
-  font-size: 15px;
+  font-size: 0.42em;
+  line-height: 1;
 }
 
 .brand-lines {
@@ -1345,18 +1349,6 @@ body {
   height: 66px;
   flex: 0 0 auto;
   border-bottom: 0;
-}
-
-.phone-status {
-  height: 25px;
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  padding: 0 5px 2px;
-  color: #191714;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .1px;
 }
 
 .brand { font-size: 31px; }

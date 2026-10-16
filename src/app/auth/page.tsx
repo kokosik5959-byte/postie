@@ -80,10 +80,9 @@ export default function AuthPage() {
 
   return (
     <main className="postie auth-screen">
-      <div className="phone-status" aria-hidden="true"><span>9:41</span><span>●●●　◖　▰</span></div>
       <Link className="auth-back" href="/">← К открыткам</Link>
       <div className="auth-card">
-        <p className="brand auth-brand">Postie<span className="brand-heart">♥</span></p>
+        <p className="brand auth-brand">Post<span className="brand-i">i<span className="brand-heart">♥</span></span>e</p>
         {accountEmail ? (
           <>
             <h1>Ты уже с нами</h1>
