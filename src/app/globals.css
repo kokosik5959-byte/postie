@@ -207,7 +207,7 @@ input:focus-visible {
 
 .brand-heart {
   position: absolute;
-  top: calc(-0.12em + 3px);
+  top: calc(-0.12em + 5px);
   left: calc(50% + 5px);
   transform: translateX(-50%);
   color: var(--coral);
