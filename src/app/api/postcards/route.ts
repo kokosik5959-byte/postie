@@ -1,5 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { connection } from "next/server";
 
 const imageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"]);
 
@@ -14,6 +15,7 @@ function getTitle(filename: string, index: number) {
 }
 
 export async function GET() {
+  await connection();
   const directory = path.join(process.cwd(), "public", "postcards");
 
   try {
