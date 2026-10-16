@@ -12,8 +12,43 @@ type Postcard3DProps = {
 
 export default function Postcard3D({ front, back, className = "", backVisible = false, onTap }: Postcard3DProps) {
   const [rotation, setRotation] = useState({ x: -5, y: backVisible ? 180 : 0 });
+  const [cardSize, setCardSize] = useState<{ width: number; height: number } | null>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; x: number; y: number; moved: boolean } | null>(null);
   const expectedBack = useRef(backVisible);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    const availableWidth = scene?.parentElement;
+    if (!scene || !availableWidth) return;
+
+    const fitToFrontImage = () => {
+      const image = scene.querySelector<HTMLImageElement>(".postcard-3d-front img");
+      if (!image?.naturalWidth || !image.naturalHeight) return;
+
+      const ratio = image.naturalWidth / image.naturalHeight;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const isArchiveCard = scene.classList.contains("archive-3d");
+      const maxHeight = isArchiveCard ? Math.min(viewportHeight * 0.42, 360) : Math.min(viewportHeight * 0.55, 480);
+      const width = Math.min(availableWidth.clientWidth, maxHeight * ratio);
+      const height = width / ratio;
+      setCardSize((current) => current && Math.abs(current.width - width) < 1 && Math.abs(current.height - height) < 1 ? current : { width, height });
+    };
+
+    const observer = new ResizeObserver(fitToFrontImage);
+    observer.observe(availableWidth);
+    scene.addEventListener("load", fitToFrontImage, true);
+    window.addEventListener("resize", fitToFrontImage);
+    window.visualViewport?.addEventListener("resize", fitToFrontImage);
+    fitToFrontImage();
+
+    return () => {
+      observer.disconnect();
+      scene.removeEventListener("load", fitToFrontImage, true);
+      window.removeEventListener("resize", fitToFrontImage);
+      window.visualViewport?.removeEventListener("resize", fitToFrontImage);
+    };
+  }, [front]);
 
   useEffect(() => {
     if (expectedBack.current === backVisible) return;
@@ -52,7 +87,7 @@ export default function Postcard3D({ front, back, className = "", backVisible = 
   }
 
   return (
-    <div className={`postcard-3d-scene ${className}`}>
+    <div ref={sceneRef} className={`postcard-3d-scene ${className}`}>
       <div
         className="postcard-3d-rotator"
         role={onTap ? "button" : "img"}
@@ -71,10 +106,10 @@ export default function Postcard3D({ front, back, className = "", backVisible = 
             onTap(Math.abs(halfTurns % 2) === 1 ? "back" : "front");
           }
         }}
-        style={{ transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)` }}
+        style={{ transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`, ...(cardSize ? { width: `${cardSize.width}px`, height: `${cardSize.height}px` } : {}) }}
       >
-        <div className="postcard-3d-face postcard-3d-front">{front}</div>
-        <div className="postcard-3d-face postcard-3d-back">{back}</div>
+        <div className="postcard-3d-face postcard-3d-front" style={cardSize ? { height: `${cardSize.height}px` } : undefined}>{front}</div>
+        <div className="postcard-3d-face postcard-3d-back" style={cardSize ? { height: `${cardSize.height}px` } : undefined}>{back}</div>
       </div>
       <small className="postcard-3d-hint">{onTap ? "Нажми, чтобы открыть на весь экран · проведи, чтобы повернуть" : "Проведи пальцем, чтобы повернуть"}</small>
     </div>
