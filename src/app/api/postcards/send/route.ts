@@ -2,12 +2,14 @@ import { Buffer } from "node:buffer";
 import { createClient } from "@/lib/supabase/server";
 
 type SendRequest = {
-  recipientEmail?: string;
+  recipientId?: string;
   title?: string;
   imageSource?: string;
   frontCaption?: string;
   message?: string;
   shareEnabled?: boolean;
+  frontCaptionX?: number;
+  frontCaptionY?: number;
 };
 
 const allowedImages: Record<string, string> = {
@@ -25,14 +27,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Не удалось прочитать открытку." }, { status: 400 });
   }
 
-  const recipientEmail = body.recipientEmail?.trim().toLowerCase() || null;
+  const recipientId = body.recipientId?.trim() || null;
   const shareEnabled = body.shareEnabled === true;
   const imageSource = body.imageSource ?? "";
-  if (!recipientEmail && !shareEnabled) {
-    return Response.json({ error: "Укажи почту получателя или включи ссылку-приглашение." }, { status: 400 });
-  }
-  if (recipientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
-    return Response.json({ error: "Проверь адрес электронной почты получателя." }, { status: 400 });
+  if (Boolean(recipientId) === shareEnabled) {
+    return Response.json({ error: "Выбери одного получателя: друга или ссылку-приглашение." }, { status: 400 });
   }
   if (!imageSource.startsWith("/postcards/") && !imageSource.startsWith("data:image/")) {
     return Response.json({ error: "Выбери изображение для открытки." }, { status: 400 });
@@ -47,6 +46,12 @@ export async function POST(request: Request) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
     return Response.json({ error: "Войди в Postie, чтобы отправить открытку." }, { status: 401 });
+  }
+
+  if (recipientId) {
+    const { data: friendship, error: friendError } = await supabase.from("friendships").select("id")
+      .eq("status", "accepted").or(`and(requester_id.eq.${user.id},addressee_id.eq.${recipientId}),and(requester_id.eq.${recipientId},addressee_id.eq.${user.id})`).maybeSingle();
+    if (friendError || !friendship) return Response.json({ error: "Отправить открытку можно только подтверждённому другу." }, { status: 403 });
   }
 
   let imagePath = imageSource;
@@ -72,10 +77,13 @@ export async function POST(request: Request) {
     .from("postcards")
     .insert({
       sender_id: user.id,
-      recipient_email: recipientEmail,
+      recipient_id: recipientId,
+      recipient_email: null,
       title: body.title?.trim().slice(0, 100) || "Тёплая открытка",
       image_path: imagePath,
       front_caption: body.frontCaption?.trim().slice(0, 100) || "",
+      front_caption_x: Math.max(0, Math.min(100, Number(body.frontCaptionX ?? 50))),
+      front_caption_y: Math.max(0, Math.min(100, Number(body.frontCaptionY ?? 80))),
       message: body.message?.trim().slice(0, 2000) || "",
       share_enabled: shareEnabled,
     })
@@ -85,12 +93,6 @@ export async function POST(request: Request) {
   if (insertError) {
     if (imagePath !== imageSource) await supabase.storage.from("postcard-images").remove([imagePath]);
     return Response.json({ error: insertError.message }, { status: 400 });
-  }
-
-  if (recipientEmail && !postcard.recipient_id && !shareEnabled) {
-    await supabase.from("postcards").delete().eq("id", postcard.id);
-    if (imagePath !== imageSource) await supabase.storage.from("postcard-images").remove([imagePath]);
-    return Response.json({ error: "Аккаунт с такой почтой не найден. Включи ссылку-приглашение, чтобы отправить открытку без регистрации." }, { status: 422 });
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;

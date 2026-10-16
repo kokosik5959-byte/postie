@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from "react";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 type Postcard = {
@@ -16,6 +16,8 @@ type MailCard = {
   title: string;
   image: string;
   frontCaption: string;
+  frontCaptionX: number;
+  frontCaptionY: number;
   message: string;
   openedAt: string | null;
   createdAt: string;
@@ -23,7 +25,9 @@ type MailCard = {
   shareUrl: string | null;
 };
 
-type AppIconName = "home" | "sent" | "create" | "received" | "profile";
+type Friend = { id: string; personId: string; name: string; createdAt: string };
+type FriendsData = { friends: Friend[]; incoming: Friend[]; outgoing: Friend[] };
+type AppIconName = "home" | "sent" | "create" | "received" | "profile" | "friends";
 
 function AppIcon({ name }: { name: AppIconName }) {
   if (name === "received") {
@@ -44,7 +48,11 @@ function AppIcon({ name }: { name: AppIconName }) {
     );
   }
 
-  const glyphs: Record<Exclude<AppIconName, "profile" | "received">, string> = {
+  if (name === "friends") {
+    return <svg className="nav-svg-icon" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c.3-3.3 2.3-5 6-5s5.7 1.7 6 5M17 5a3 3 0 0 1 0 6m2 3c1.4.8 2.2 2.2 2.4 4"/></svg>;
+  }
+
+  const glyphs: Record<Exclude<AppIconName, "profile" | "received" | "friends">, string> = {
     home: "⌂",
     sent: "✈",
     create: "+",
@@ -59,7 +67,7 @@ export default function Home() {
   const [postcards, setPostcards] = useState<Postcard[]>([]);
   const [photosLoading, setPhotosLoading] = useState(true);
   const [photosError, setPhotosError] = useState("");
-  const [activeView, setActiveView] = useState<"home" | "sent" | "received" | "collections">("home");
+  const [activeView, setActiveView] = useState<"home" | "sent" | "received" | "collections" | "friends">("home");
   const [category, setCategory] = useState("Все");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -139,6 +147,9 @@ export default function Home() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [greeting, setGreeting] = useState("");
   const [frontCaption, setFrontCaption] = useState("");
+  const [frontCaptionX, setFrontCaptionX] = useState(50);
+  const [frontCaptionY, setFrontCaptionY] = useState(80);
+  const captionDragRef = useRef(false);
   const [fontFamily, setFontFamily] = useState("Georgia");
   const [fontSize, setFontSize] = useState(28);
   const [fontColor, setFontColor] = useState("#ffffff");
@@ -153,10 +164,16 @@ export default function Home() {
   const [mailboxCards, setMailboxCards] = useState<MailCard[]>([]);
   const [mailboxError, setMailboxError] = useState("");
   const [mailboxLoading, setMailboxLoading] = useState(false);
-  const [recipientEmail, setRecipientEmail] = useState("");
-  const [shareEnabled, setShareEnabled] = useState(false);
+  const [recipientId, setRecipientId] = useState("");
+  const [deliveryMode, setDeliveryMode] = useState<"friend" | "link">("link");
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ message: string; shareUrl: string | null } | null>(null);
+  const [friendsData, setFriendsData] = useState<FriendsData>({ friends: [], incoming: [], outgoing: [] });
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [friendEmail, setFriendEmail] = useState("");
+  const [friendMessage, setFriendMessage] = useState("");
+  const [selectedMail, setSelectedMail] = useState<MailCard | null>(null);
+  const [mailBackVisible, setMailBackVisible] = useState(false);
  const filtered = postcards.filter((card) => {
   const matchesCategory =
     category === "Все" || card.category === category;
@@ -193,6 +210,54 @@ export default function Home() {
     return () => controller.abort();
   }, [activeView]);
 
+  useEffect(() => {
+    if (activeView !== "friends" && !(deliveryMode === "friend" && (showCreate || editorOpen))) return;
+    const controller = new AbortController();
+    setFriendsLoading(true);
+    fetch("/api/friends", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error || "Не удалось загрузить друзей."); return data as FriendsData; })
+      .then((data) => { setFriendsData(data); if (!recipientId && data.friends[0]) setRecipientId(data.friends[0].personId); })
+      .catch((error: unknown) => { if (error instanceof Error && error.name !== "AbortError") setFriendMessage(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setFriendsLoading(false); });
+    return () => controller.abort();
+  }, [activeView, deliveryMode, showCreate, editorOpen]);
+
+  function moveCaption(event: PointerEvent<HTMLParagraphElement>) {
+    const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!bounds) return;
+    setFrontCaptionX(Math.max(5, Math.min(95, ((event.clientX - bounds.left) / bounds.width) * 100)));
+    setFrontCaptionY(Math.max(5, Math.min(95, ((event.clientY - bounds.top) / bounds.height) * 100)));
+  }
+
+  async function openMailCard(card: MailCard) {
+    setSelectedMail(card);
+    setMailBackVisible(false);
+    if (activeView === "received" && !card.openedAt) {
+      const response = await fetch("/api/mailbox/open", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: card.id }) });
+      const result = await response.json();
+      if (response.ok) {
+        const updated = { ...card, openedAt: result.openedAt as string };
+        setSelectedMail(updated);
+        setMailboxCards((cards) => cards.map((item) => item.id === card.id ? updated : item));
+      }
+    }
+  }
+
+  async function addFriend(event: FormEvent) {
+    event.preventDefault(); setFriendMessage("");
+    const response = await fetch("/api/friends", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: friendEmail }) });
+    const result = await response.json();
+    setFriendMessage(result.message || result.error || "Готово.");
+    if (response.ok) { setFriendEmail(""); const refreshed = await fetch("/api/friends", { cache: "no-store" }).then((r) => r.json()); setFriendsData(refreshed); }
+  }
+
+  async function respondFriend(id: string, action: "accept" | "decline") {
+    const response = await fetch("/api/friends/respond", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action }) });
+    const result = await response.json();
+    if (!response.ok) { setFriendMessage(result.error || "Не удалось обработать запрос."); return; }
+    const refreshed = await fetch("/api/friends", { cache: "no-store" }).then((r) => r.json()); setFriendsData(refreshed);
+  }
+
   async function sendPostcard() {
     const imageSource = photo || selected?.image;
     if (!imageSource) return;
@@ -203,20 +268,20 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          recipientEmail,
+          recipientId: deliveryMode === "friend" ? recipientId : null,
           title: frontCaption || selected?.title || "Тёплая открытка",
           imageSource,
           frontCaption,
           message: greeting,
-          shareEnabled,
+          shareEnabled: deliveryMode === "link",
+          frontCaptionX,
+          frontCaptionY,
         }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Не удалось отправить открытку.");
       setSendResult({
-        message: result.deliveredToUser
-          ? "Открытка отправлена в почту Postie получателя."
-          : "Открытка сохранена. Если получатель ещё не в Postie, отправь ему ссылку-приглашение.",
+        message: deliveryMode === "friend" ? "Открытка отправлена другу в Postie." : "Ссылка на открытку готова — отправь её в мессенджере.",
         shareUrl: result.shareUrl,
       });
     } catch (error) {
@@ -402,7 +467,7 @@ export default function Home() {
           {mailboxLoading && <p className="catalog-message">Открываю отправленные…</p>}
           {mailboxError && <p className="catalog-message">{mailboxError} <a href="/auth">Войти или создать аккаунт</a></p>}
           {!mailboxLoading && !mailboxError && mailboxCards.length === 0 && <p className="catalog-message">Здесь появятся открытки, которые ты отправишь.</p>}
-          {mailboxCards.map((card) => <article className="mail-item" key={card.id}><img src={card.image} alt="" /><div><strong>{card.contactName || "Ссылка-приглашение"}</strong><span>{card.frontCaption || card.title}</span><small>{new Date(card.createdAt).toLocaleDateString("ru-RU")}</small><small className="delivery-status">✓　{card.contactName ? (card.openedAt ? "Открыта" : "Доставлена") : "Можно поделиться ссылкой"}</small>{card.shareUrl && <button type="button" className="mail-share" onClick={async () => { if (navigator.share) await navigator.share({ title: "Открытка Postie", text: "Для тебя есть открытка!", url: card.shareUrl! }); else await navigator.clipboard.writeText(card.shareUrl!); }}>Поделиться ссылкой</button>}</div></article>)}
+          {mailboxCards.map((card) => <article className="mail-item" key={card.id}><button type="button" className="mail-item-open" onClick={() => void openMailCard(card)}><img src={card.image} alt="" /><div><strong>{card.contactName || "Ссылка-приглашение"}</strong><span>{card.frontCaption || card.title}</span><small>{new Date(card.createdAt).toLocaleDateString("ru-RU")}</small><small className="delivery-status">✓　{card.contactName ? (card.openedAt ? "Открыта" : "Нажми, чтобы открыть") : "Нажми, чтобы посмотреть"}</small></div></button>{card.shareUrl && <button type="button" className="mail-share" onClick={async () => { if (navigator.share) await navigator.share({ title: "Открытка Postie", text: "Для тебя есть открытка!", url: card.shareUrl! }); else await navigator.clipboard.writeText(card.shareUrl!); }}>Поделиться</button>}</article>)}
         </section>
       )}
 
@@ -412,7 +477,23 @@ export default function Home() {
           {mailboxLoading && <p className="catalog-message">Открываю полученные…</p>}
           {mailboxError && <p className="catalog-message">{mailboxError} <a href="/auth">Войти или создать аккаунт</a></p>}
           {!mailboxLoading && !mailboxError && mailboxCards.length === 0 && <p className="catalog-message">Когда тебе отправят открытку, она появится здесь.</p>}
-          {mailboxCards.map((card) => <article className="mail-item" key={card.id}><img src={card.image} alt="" /><div><strong>{card.contactName || "Друг Postie"}</strong><span>{card.frontCaption || card.title}</span><small>{new Date(card.createdAt).toLocaleDateString("ru-RU")}</small><small className="delivery-status">♥　{card.openedAt ? "Ты уже открыл эту открытку" : "Для тебя"}</small></div></article>)}
+          {mailboxCards.map((card) => <article className="mail-item" key={card.id}><button type="button" className="mail-item-open" onClick={() => void openMailCard(card)}><img src={card.image} alt="" /><div><strong>{card.contactName || "Друг Postie"}</strong><span>{card.frontCaption || card.title}</span><small>{new Date(card.createdAt).toLocaleDateString("ru-RU")}</small><small className="delivery-status">♥　{card.openedAt ? "Ты уже открыл эту открытку" : "Нажми, чтобы открыть"}</small></div></button></article>)}
+        </section>
+      )}
+
+      {activeView === "friends" && (
+        <section className="mailbox-screen friends-screen">
+          <div className="mailbox-heading"><div><p className="eyebrow">ВАШ КРУГ</p><h1>Друзья</h1></div></div>
+          <form className="friend-add-form" onSubmit={(event) => void addFriend(event)}><label className="greeting-label">Добавить по почте аккаунта<input className="greeting-input" type="email" value={friendEmail} onChange={(event) => setFriendEmail(event.target.value)} placeholder="friend@example.com" required /></label><button className="primary-button full-button" type="submit">Отправить запрос</button></form>
+          {friendMessage && <p className="friend-message" role="status">{friendMessage}</p>}
+          {friendsLoading && <p className="catalog-message">Загружаю друзей…</p>}
+          <h2>Запросы тебе</h2>
+          {friendsData.incoming.map((friend) => <div className="friend-row" key={friend.id}><strong>{friend.name}</strong><button type="button" onClick={() => void respondFriend(friend.id, "accept")}>Принять</button><button type="button" onClick={() => void respondFriend(friend.id, "decline")}>Отклонить</button></div>)}
+          {!friendsData.incoming.length && <p className="delivery-hint">Новых запросов пока нет.</p>}
+          <h2>Мои друзья · {friendsData.friends.length}</h2>
+          {friendsData.friends.map((friend) => <div className="friend-row" key={friend.id}><span className="friend-avatar">{friend.name.charAt(0).toUpperCase()}</span><strong>{friend.name}</strong><button type="button" onClick={() => { setRecipientId(friend.personId); setDeliveryMode("friend"); setShowCreate(true); }}>Отправить открытку</button></div>)}
+          {!friendsData.friends.length && <p className="delivery-hint">Подтверждённые друзья появятся здесь.</p>}
+          {friendsData.outgoing.length > 0 && <><h2>Ожидают подтверждения</h2>{friendsData.outgoing.map((friend) => <div className="friend-row" key={friend.id}><strong>{friend.name}</strong><small>Запрос отправлен</small></div>)}</>}
         </section>
       )}
 
@@ -428,6 +509,9 @@ export default function Home() {
         </button>
         <button className={`nav-item ${activeView === "received" ? "selected" : ""}`} onClick={() => setActiveView("received")}>
           <span><AppIcon name="received" /></span>Получено
+        </button>
+        <button className={`nav-item ${activeView === "friends" ? "selected" : ""}`} onClick={() => setActiveView("friends")}>
+          <span><AppIcon name="friends" /></span>Друзья
         </button>
         <button className="nav-item" onClick={() => setShowProfile(true)}>
           <span><AppIcon name="profile" /></span>Профиль
@@ -469,6 +553,7 @@ export default function Home() {
                 <button className="primary-button full-button" onClick={() => {
                   setEditorOpen(true);
                   setShowBack(false);
+                  setFrontCaption(""); setFrontCaptionX(50); setFrontCaptionY(80);
                 }}>
                   Продолжить →
                 </button>
@@ -484,6 +569,7 @@ export default function Home() {
   onClick={() => {
     setEditorOpen(true);
     setShowBack(false);
+    setFrontCaption(""); setFrontCaptionX(50); setFrontCaptionY(80);
   }}
 >
   Выбрать дизайн →
@@ -543,21 +629,21 @@ export default function Home() {
 {photo ? (
   <div className="front-image-wrap">
     <img src={photo} alt="Лицевая сторона открытки" />
-    <p className="front-caption-overlay" style={{ fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>
+    <p className="front-caption-overlay" onPointerDown={(event) => { captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={() => { captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>
       {frontCaption || "Моё воспоминание"}
     </p>
   </div>
 ) : selected ? (
   <div className="front-image-wrap">
     <img src={selected.image} alt={selected.title} />
-    <p className="front-caption-overlay" style={{ fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>
-      {frontCaption || selected.title}
+    <p className="front-caption-overlay" onPointerDown={(event) => { captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={() => { captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>
+      {frontCaption || "Моё воспоминание"}
     </p>
   </div>
 ) : null}
 
             <label className="greeting-label">
-  Подпись на лицевой стороне
+  Подпись на лицевой стороне · необязательно
   <input
     className="greeting-input"
     value={frontCaption}
@@ -565,6 +651,7 @@ export default function Home() {
     placeholder="Например, наше лето в Грузии"
     maxLength={60}
   />
+  <small className="delivery-hint">Перетащи надпись мышью или пальцем в нужное место открытки.</small>
 </label>
 <div className="text-editor-controls" aria-label="Настройки текста">
   <label>Шрифт<select value={fontFamily} onChange={(event) => setFontFamily(event.target.value)}><option value="Georgia">Georgia</option><option value="Arial">Arial</option><option value="Verdana">Verdana</option><option value="'Times New Roman'">Times New Roman</option><option value="'Courier New'">Courier New</option></select></label>
@@ -604,9 +691,9 @@ export default function Home() {
       )}
 
       <div className="send-postcard-controls">
-        <label className="greeting-label">Почта получателя<input className="greeting-input" type="email" autoComplete="email" value={recipientEmail} onChange={(event) => setRecipientEmail(event.target.value)} placeholder="friend@example.com" /></label>
-        <label className="share-toggle"><input type="checkbox" checked={shareEnabled} onChange={(event) => setShareEnabled(event.target.checked)} /><span><strong>Ссылка для мессенджера</strong><small>Открытка откроется без регистрации</small></span></label>
-        <button className="primary-button full-button" onClick={sendPostcard} disabled={sending}>{sending ? "Отправляю…" : "Отправить открытку"}</button>
+        <div className="delivery-choice" role="group" aria-label="Способ отправки"><button type="button" className={deliveryMode === "friend" ? "active" : ""} onClick={() => setDeliveryMode("friend")}>Другу Postie</button><button type="button" className={deliveryMode === "link" ? "active" : ""} onClick={() => setDeliveryMode("link")}>Ссылка в мессенджер</button></div>
+        {deliveryMode === "friend" ? <label className="greeting-label">Кому отправить?{friendsData.friends.length ? <select className="greeting-input" value={recipientId} onChange={(event) => setRecipientId(event.target.value)}>{friendsData.friends.map((friend) => <option key={friend.personId} value={friend.personId}>{friend.name}</option>)}</select> : <span>Сначала добавь друга и дождись подтверждения. <button type="button" className="mail-share" onClick={() => { setEditorOpen(false); setActiveView("friends"); }}>Открыть друзей</button></span>}</label> : <p className="delivery-hint">Открытку можно будет посмотреть по ссылке без регистрации.</p>}
+        <button className="primary-button full-button" onClick={sendPostcard} disabled={sending || (deliveryMode === "friend" && !friendsData.friends.some((friend) => friend.personId === recipientId))}>{sending ? "Отправляю…" : "Отправить открытку"}</button>
         {sendResult && <div className="send-result" role="status"><p>{sendResult.message}</p>{sendResult.message.startsWith("Войди в Postie") && <a href="/auth">Войти или создать аккаунт</a>}{sendResult.shareUrl && <><a href={sendResult.shareUrl}>{sendResult.shareUrl}</a><button type="button" onClick={async () => { await navigator.clipboard.writeText(sendResult.shareUrl!); setSendResult((old) => old ? { ...old, message: `${old.message} Ссылка скопирована.` } : old); }}>Скопировать ссылку</button><button type="button" onClick={async () => { if (navigator.share) await navigator.share({ title: "Открытка Postie", text: "Для тебя есть открытка!", url: sendResult.shareUrl! }); else { await navigator.clipboard.writeText(sendResult.shareUrl!); setSendResult((old) => old ? { ...old, message: `${old.message} Ссылка скопирована.` } : old); } }}>Отправить в мессенджер</button></>}</div>}
       </div>
 
@@ -782,6 +869,14 @@ export default function Home() {
       <button
         type="button"
         className="profile-link"
+        onClick={() => { setShowProfile(false); setActiveView("friends"); }}
+      >
+        <span><AppIcon name="friends" /></span> Друзья <span>›</span>
+      </button>
+
+      <button
+        type="button"
+        className="profile-link"
         onClick={() => {
           setShowProfile(false);
           setShowFavoritesOnly(false);
@@ -838,9 +933,23 @@ export default function Home() {
       <button type="button" onClick={() => { setShowProfile(false); setActiveView("home"); }}><span><AppIcon name="home" /></span>Главная</button>
       <button type="button" onClick={() => { setShowProfile(false); setActiveView("sent"); }}><span><AppIcon name="sent" /></span>Отправленные</button>
       <button type="button" onClick={() => { setShowProfile(false); setActiveView("received"); }}><span><AppIcon name="received" /></span>Полученные</button>
+      <button type="button" onClick={() => { setShowProfile(false); setActiveView("friends"); }}><span><AppIcon name="friends" /></span>Друзья</button>
       <button type="button" className="active"><span><AppIcon name="profile" /></span>Профиль</button>
     </nav>
   </section>
+)}
+{selectedMail && (
+  <div className="modal-backdrop" onClick={() => setSelectedMail(null)}>
+    <section className="create-modal opened-mail-modal" onClick={(event) => event.stopPropagation()}>
+      <button type="button" className="modal-close" aria-label="Закрыть открытку" onClick={() => setSelectedMail(null)}>×</button>
+      <p className="eyebrow">{mailBackVisible ? "ТЕКСТ ОТКРЫТКИ" : "ТЕБЕ ПРИШЛА ОТКРЫТКА"}</p>
+      <h2>{selectedMail.title}</h2>
+      {!mailBackVisible ? <div className="opened-card-image"><img src={selectedMail.image} alt={selectedMail.frontCaption || selectedMail.title} />{(selectedMail.frontCaption || "Моё воспоминание") && <span style={{ left: `${selectedMail.frontCaptionX}%`, top: `${selectedMail.frontCaptionY}%` }}>{selectedMail.frontCaption || "Моё воспоминание"}</span>}</div> : <div className="opened-card-message"><p>{selectedMail.message || "Пусть этот момент останется с тобой."}</p><small>С теплом ♡</small></div>}
+      <p className="delivery-hint">{activeView === "sent" ? `Для: ${selectedMail.contactName || "по ссылке"}` : `От: ${selectedMail.contactName || "друга Postie"}`}</p>
+      <button type="button" className="primary-button full-button" onClick={() => setMailBackVisible((value) => !value)}>{mailBackVisible ? "Посмотреть лицевую сторону" : "Прочитать поздравление"}</button>
+      {selectedMail.shareUrl && <button type="button" className="mail-share" onClick={async () => { if (navigator.share) await navigator.share({ title: "Открытка Postie", text: "Для тебя есть открытка!", url: selectedMail.shareUrl! }); else await navigator.clipboard.writeText(selectedMail.shareUrl!); }}>Поделиться ссылкой</button>}
+    </section>
+  </div>
 )}
     </main>
   );

@@ -7,14 +7,14 @@ type SharedPostcardPageProps = { params: Promise<{ token: string }> };
 
 export default async function SharedPostcardPage({ params }: SharedPostcardPageProps) {
   const { token } = await params;
-  let card: { id: string; title: string; image_path: string; front_caption: string; message: string; sender_id: string } | null = null;
+  let card: { id: string; title: string; image_path: string; front_caption: string; front_caption_x: number; front_caption_y: number; message: string; sender_id: string } | null = null;
   let senderName = "Твой близкий человек";
   let imageUrl = "";
 
   try {
     const admin = createAdminClient();
     const { data } = await admin.from("postcards")
-      .select("id, title, image_path, front_caption, message, sender_id")
+      .select("id, title, image_path, front_caption, front_caption_x, front_caption_y, message, sender_id")
       .eq("share_token", token)
       .eq("share_enabled", true)
       .maybeSingle();
@@ -43,9 +43,8 @@ export default async function SharedPostcardPage({ params }: SharedPostcardPageP
         <article className="shared-postcard">
           <p className="eyebrow">ТЕБЕ ПРИШЛА ОТКРЫТКА</p>
           <h1>{card.title}</h1>
-          <div className="shared-image-wrap"><img src={imageUrl} alt={card.front_caption || card.title} /></div>
+          <div className="shared-image-wrap"><img src={imageUrl} alt={card.front_caption || "Моё воспоминание"} /><span className="shared-front-caption" style={{ left: `${card.front_caption_x}%`, top: `${card.front_caption_y}%` }}>{card.front_caption || "Моё воспоминание"}</span></div>
           <p className="shared-sender">От {senderName}</p>
-          {card.front_caption && <h2>{card.front_caption}</h2>}
           {card.message && <p className="shared-message">{card.message}</p>}
           <Link href="/auth" className="primary-button full-button">Создать свою открытку</Link>
         </article>

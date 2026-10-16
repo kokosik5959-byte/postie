@@ -5,6 +5,8 @@ type PostcardRow = {
   title: string;
   image_path: string;
   front_caption: string;
+  front_caption_x: number;
+  front_caption_y: number;
   message: string;
   opened_at: string | null;
   created_at: string;
@@ -32,8 +34,8 @@ export async function GET(request: Request) {
   }
 
   const selection = box === "sent"
-    ? "id, title, image_path, front_caption, message, opened_at, created_at, share_token, share_enabled, recipient:profiles!postcards_recipient_id_fkey(display_name)"
-    : "id, title, image_path, front_caption, message, opened_at, created_at, share_token, share_enabled, sender:profiles!postcards_sender_id_fkey(display_name)";
+    ? "id, title, image_path, front_caption, front_caption_x, front_caption_y, message, opened_at, created_at, share_token, share_enabled, recipient:profiles!postcards_recipient_id_fkey(display_name)"
+    : "id, title, image_path, front_caption, front_caption_x, front_caption_y, message, opened_at, created_at, share_token, share_enabled, sender:profiles!postcards_sender_id_fkey(display_name)";
   const filter = box === "sent" ? "sender_id" : "recipient_id";
   const { data, error } = await supabase.from("postcards").select(selection).eq(filter, user.id).order("created_at", { ascending: false });
 
@@ -50,6 +52,8 @@ export async function GET(request: Request) {
       title: card.title,
       image,
       frontCaption: card.front_caption,
+      frontCaptionX: card.front_caption_x,
+      frontCaptionY: card.front_caption_y,
       message: card.message,
       openedAt: card.opened_at,
       createdAt: card.created_at,

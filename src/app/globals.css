@@ -1564,6 +1564,42 @@ body {
   text-align: center;
 }
 
+/* Friends, opened postcards, and movable front captions. */
+.mail-item { align-items: center; }
+.mail-item-open { display: flex; flex: 1; min-width: 0; align-items: center; gap: 11px; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.mail-item-open > div { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.mail-share { align-self: center; flex: 0 0 auto; border: 0; background: transparent; color: var(--coral-dark); font-size: 11px; cursor: pointer; }
+.front-caption-overlay { right: auto !important; bottom: auto !important; max-width: 84%; width: max-content; padding: 4px 7px; pointer-events: auto; touch-action: none; cursor: grab; user-select: none; }
+.front-caption-overlay:active { cursor: grabbing; }
+.editor-front .front-image-wrap .front-caption-overlay { right: auto; bottom: auto; pointer-events: auto; }
+.delivery-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 10px 0 14px; }
+.delivery-choice button { min-height: 42px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: #fffaf1; color: var(--ink); font-size: 12px; }
+.delivery-choice button.active { border-color: var(--coral); background: #bf4c32; color: white; }
+.delivery-hint,.friend-message { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.friends-screen > h2 { margin: 20px 0 8px; font: 600 18px/1.2 Georgia, serif; }
+.friend-add-form { padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: #fffaf1; }
+.friend-add-form .primary-button { min-height: 42px; margin-top: 10px; font-size: 13px; }
+.friend-row { display: flex; min-height: 52px; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.friend-row strong { flex: 1; font-size: 13px; }
+.friend-row button { padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: #fffaf1; color: var(--coral-dark); font-size: 11px; }
+.friend-avatar { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: #efe9df; font-weight: 700; }
+.opened-mail-modal { width: min(100%, 480px); }
+.opened-card-image { position: relative; overflow: hidden; border-radius: 14px; background: #eee; }
+.opened-card-image img { display: block; width: 100%; max-height: 52vh; aspect-ratio: 4 / 3; object-fit: cover; }
+.opened-card-image span,.shared-front-caption { position: absolute; z-index: 1; max-width: 84%; padding: 4px 7px; transform: translate(-50%,-50%); color: white; font: italic 24px/1.2 Georgia,serif; text-align: center; text-shadow: 0 2px 6px #000c; overflow-wrap: anywhere; }
+.opened-card-message { min-height: 180px; padding: 24px; border-radius: 14px; background: #fffaf1; font: 18px/1.6 Georgia,serif; white-space: pre-wrap; }
+.opened-card-message small { color: var(--muted); }
+.shared-image-wrap { position: relative; }
+.shared-image-wrap img { display: block; }
+.profile-link > span:first-child .nav-svg-icon { width: 21px; height: 21px; }
+
+@media (max-width: 520px) {
+  .nav-item { min-width: 0; flex: 1 1 0; padding-inline: 1px; font-size: 8px; }
+  .nav-item > span { height: 22px; }
+  .profile-bottom-nav { display: flex; justify-content: space-around; }
+  .profile-bottom-nav button { min-width: 0; flex: 1 1 0; padding-inline: 1px; font-size: 8px; }
+}
+
 .create-nav-item > span {
   width: 29px;
   height: 29px;
