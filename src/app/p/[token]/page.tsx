@@ -43,7 +43,7 @@ export default async function SharedPostcardPage({ params }: SharedPostcardPageP
         <article className="shared-postcard">
           <p className="eyebrow">ТЕБЕ ПРИШЛА ОТКРЫТКА</p>
           <h1>{card.title}</h1>
-          <div className="shared-image-wrap"><img src={imageUrl} alt={card.front_caption || "Моё воспоминание"} /><span className="shared-front-caption" style={{ left: `${card.front_caption_x}%`, top: `${card.front_caption_y}%` }}>{card.front_caption || "Моё воспоминание"}</span></div>
+          <div className="shared-image-wrap"><img src={imageUrl} alt={card.front_caption || card.title} />{card.front_caption.trim() && <span className="shared-front-caption" style={{ left: `${card.front_caption_x}%`, top: `${card.front_caption_y}%` }}>{card.front_caption}</span>}</div>
           <p className="shared-sender">От {senderName}</p>
           {card.message && <p className="shared-message">{card.message}</p>}
           <Link href="/auth" className="primary-button full-button">Создать свою открытку</Link>

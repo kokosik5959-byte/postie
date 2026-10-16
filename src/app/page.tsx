@@ -629,16 +629,12 @@ export default function Home() {
 {photo ? (
   <div className="front-image-wrap">
     <img src={photo} alt="Лицевая сторона открытки" />
-    <p className="front-caption-overlay" onPointerDown={(event) => { captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={() => { captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>
-      {frontCaption || "Моё воспоминание"}
-    </p>
+    {frontCaption.trim() && <p className="front-caption-overlay" onPointerDown={(event) => { captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={() => { captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>{frontCaption}</p>}
   </div>
 ) : selected ? (
   <div className="front-image-wrap">
     <img src={selected.image} alt={selected.title} />
-    <p className="front-caption-overlay" onPointerDown={(event) => { captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={() => { captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>
-      {frontCaption || "Моё воспоминание"}
-    </p>
+    {frontCaption.trim() && <p className="front-caption-overlay" onPointerDown={(event) => { captionDragRef.current = true; event.currentTarget.setPointerCapture(event.pointerId); moveCaption(event); }} onPointerMove={(event) => { if (captionDragRef.current && event.buttons === 1) moveCaption(event); }} onPointerUp={() => { captionDragRef.current = false; }} style={{ left: `${frontCaptionX}%`, top: `${frontCaptionY}%`, transform: "translate(-50%, -50%)", fontFamily, fontSize: `${fontSize}px`, color: fontColor, fontWeight: isBold ? 700 : 400, fontStyle: isItalic ? "italic" : "normal", textAlign }}>{frontCaption}</p>}
   </div>
 ) : null}
 
@@ -944,7 +940,7 @@ export default function Home() {
       <button type="button" className="modal-close" aria-label="Закрыть открытку" onClick={() => setSelectedMail(null)}>×</button>
       <p className="eyebrow">{mailBackVisible ? "ТЕКСТ ОТКРЫТКИ" : "ТЕБЕ ПРИШЛА ОТКРЫТКА"}</p>
       <h2>{selectedMail.title}</h2>
-      {!mailBackVisible ? <div className="opened-card-image"><img src={selectedMail.image} alt={selectedMail.frontCaption || selectedMail.title} />{(selectedMail.frontCaption || "Моё воспоминание") && <span style={{ left: `${selectedMail.frontCaptionX}%`, top: `${selectedMail.frontCaptionY}%` }}>{selectedMail.frontCaption || "Моё воспоминание"}</span>}</div> : <div className="opened-card-message"><p>{selectedMail.message || "Пусть этот момент останется с тобой."}</p><small>С теплом ♡</small></div>}
+      {!mailBackVisible ? <div className="opened-card-image"><img src={selectedMail.image} alt={selectedMail.frontCaption || selectedMail.title} />{selectedMail.frontCaption.trim() && <span style={{ left: `${selectedMail.frontCaptionX}%`, top: `${selectedMail.frontCaptionY}%` }}>{selectedMail.frontCaption}</span>}</div> : <div className="opened-card-message"><p>{selectedMail.message || "Пусть этот момент останется с тобой."}</p><small>С теплом ♡</small></div>}
       <p className="delivery-hint">{activeView === "sent" ? `Для: ${selectedMail.contactName || "по ссылке"}` : `От: ${selectedMail.contactName || "друга Postie"}`}</p>
       <button type="button" className="primary-button full-button" onClick={() => setMailBackVisible((value) => !value)}>{mailBackVisible ? "Посмотреть лицевую сторону" : "Прочитать поздравление"}</button>
       {selectedMail.shareUrl && <button type="button" className="mail-share" onClick={async () => { if (navigator.share) await navigator.share({ title: "Открытка Postie", text: "Для тебя есть открытка!", url: selectedMail.shareUrl! }); else await navigator.clipboard.writeText(selectedMail.shareUrl!); }}>Поделиться ссылкой</button>}
