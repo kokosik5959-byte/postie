@@ -280,6 +280,7 @@ function HomeContent() {
   const [mailboxCards, setMailboxCards] = useState<MailCard[]>([]);
   const [mailboxError, setMailboxError] = useState("");
   const [mailboxLoading, setMailboxLoading] = useState(false);
+  const [profileStats, setProfileStats] = useState<{ sent: number; received: number } | null>(null);
   const [recipientId, setRecipientId] = useState("");
   const [deliveryMode, setDeliveryMode] = useState<"friend" | "link">("link");
   const [sending, setSending] = useState(false);
@@ -388,6 +389,26 @@ function HomeContent() {
   }, [activeView]);
 
   useEffect(() => {
+    if (!authLoaded) return;
+    if (!accountEmail) {
+      setProfileStats(null);
+      return;
+    }
+    const controller = new AbortController();
+    fetch("/api/profile/stats", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Не удалось загрузить статистику.");
+        return result as { sent: number; received: number };
+      })
+      .then(setProfileStats)
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name !== "AbortError") setProfileStats(null);
+      });
+    return () => controller.abort();
+  }, [authLoaded, accountEmail, showProfile, sendResult?.shareUrl]);
+
+  useEffect(() => {
     if (activeView !== "archive") return;
     const controller = new AbortController();
     fetch("/api/archive", { signal: controller.signal, cache: "no-store" })
@@ -469,6 +490,7 @@ function HomeContent() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Не удалось отправить открытку.");
+      setProfileStats((stats) => stats ? { ...stats, sent: stats.sent + 1 } : stats);
       setSendResult({
         message: deliveryMode === "friend" ? "Открытка отправлена другу в Postie." : "Ссылка на открытку готова — отправь её в мессенджере.",
         shareUrl: result.shareUrl,
@@ -1102,9 +1124,8 @@ function HomeContent() {
     ))}
 
     <div className="profile-stats">
-      <div><strong>24</strong><span>Отправлено</span></div>
-      <div><strong>18</strong><span>Получено</span></div>
-      <div><strong>6</strong><span>Коллекций</span></div>
+      <button type="button" onClick={() => { setShowProfile(false); setActiveView("sent"); }}><strong>{profileStats?.sent ?? "—"}</strong><span>Отправлено</span></button>
+      <button type="button" onClick={() => { setShowProfile(false); setActiveView("received"); }}><strong>{profileStats?.received ?? "—"}</strong><span>Получено</span></button>
     </div>
 
     <div className="profile-menu">
@@ -1118,21 +1139,6 @@ function HomeContent() {
 
       <button type="button" className="profile-link" onClick={() => { setShowProfile(false); setArchiveError(""); setActiveView("archive"); }}>
         <span>▣</span> Мои открытки <span>›</span>
-      </button>
-
-      <button
-        type="button"
-        className="profile-link"
-        onClick={() => {
-          setShowProfile(false);
-          setShowFavoritesOnly(false);
-          setActiveView("collections");
-          setCategory("Все");
-          setSearch("");
-          document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-        }}
-      >
-        <span>▤</span> Мои коллекции <span>›</span>
       </button>
 
       <button

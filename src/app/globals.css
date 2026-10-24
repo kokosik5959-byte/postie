@@ -90,17 +90,22 @@
 
 .profile-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   margin: 24px 0 16px;
   padding: 18px 0;
   border-top: 1px solid #e8dac4;
   border-bottom: 1px solid #e8dac4;
 }
 
-.profile-stats div {
+.profile-stats button {
   display: grid;
   gap: 5px;
   text-align: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 
 .profile-stats strong {
