@@ -170,7 +170,7 @@ export default function Home() {
 }
 
 function HomeContent() {
-  const { language } = useLanguage();
+  const { language, toggleLanguage } = useLanguage();
   const [postcards, setPostcards] = useState<Postcard[]>([]);
   const [photosLoading, setPhotosLoading] = useState(true);
   const [photosError, setPhotosError] = useState("");
@@ -178,6 +178,10 @@ function HomeContent() {
   const [category, setCategory] = useState("Все");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsName, setSettingsName] = useState("");
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [showHelpDetails, setShowHelpDetails] = useState(false);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [profileName, setProfileName] = useState("Николай");
@@ -244,6 +248,7 @@ function HomeContent() {
   }, []);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const profileAvatarInput = useRef<HTMLInputElement>(null);
+  const settingsAvatarInput = useRef<HTMLInputElement>(null);
   const [avatarScale, setAvatarScale] = useState(1);
   const [avatarX, setAvatarX] = useState(50);
   const [avatarY, setAvatarY] = useState(50);
@@ -579,13 +584,46 @@ function HomeContent() {
     } finally { setDigitizeSaving(false); }
   }
 
-  function editProfileName() {
-    const nextName = window.prompt(language === "en" ? "What should we call you?" : "Как тебя называть?", profileName);
-    if (nextName === null) return;
-    const name = nextName.trim();
-    if (!name) return;
+  function openSettings() {
+    setShowProfile(false);
+    setSettingsName(profileName);
+    setSettingsMessage("");
+    setShowHelpDetails(false);
+    setShowSettings(true);
+  }
+
+  function saveSettingsName() {
+    const name = settingsName.trim();
+    if (!name) {
+      setSettingsMessage(language === "en" ? "Enter a name to continue." : "Введите имя.");
+      return;
+    }
     setProfileName(name);
+    setSettingsName(name);
     window.localStorage.setItem("postie-profile-name", name);
+    setSettingsMessage(language === "en" ? "Changes saved." : "Изменения сохранены.");
+  }
+
+  function loadProfileAvatar(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert(language === "en" ? "Choose an image." : "Выберите изображение.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const avatar = String(reader.result);
+      setProfileAvatar(avatar);
+      window.localStorage.setItem("postie-profile-avatar", avatar);
+      setAvatarScale(1);
+      setAvatarX(50);
+      setAvatarY(50);
+      window.localStorage.setItem("postie-avatar-scale", "1");
+      window.localStorage.setItem("postie-avatar-x", "50");
+      window.localStorage.setItem("postie-avatar-y", "50");
+      setSettingsMessage(language === "en" ? "Photo updated." : "Фото обновлено.");
+    };
+    reader.readAsDataURL(file);
   }
 
   return (
@@ -979,7 +1017,7 @@ function HomeContent() {
       className="profile-back"
       aria-label="Изменить имя профиля"
       title="Настройки профиля"
-      onClick={editProfileName}
+      onClick={openSettings}
     >
       ⚙
     </button>
@@ -987,7 +1025,7 @@ function HomeContent() {
    <button
   type="button"
   className="profile-avatar"
-  onClick={() => profileAvatar ? setAvatarEditing(true) : profileAvatarInput.current?.click()}
+  onClick={openSettings}
   aria-label="Загрузить фото профиля"
 >
   {profileAvatar ? (
@@ -1167,7 +1205,7 @@ function HomeContent() {
       <button
         type="button"
         className="profile-link"
-        onClick={editProfileName}
+        onClick={() => { setShowProfile(false); openSettings(); }}
       >
         <span>⚙</span> Настройки <span>›</span>
       </button>
@@ -1187,6 +1225,64 @@ function HomeContent() {
       <button type="button" onClick={() => { setShowProfile(false); setActiveView("received"); }}><span><AppIcon name="received" /></span>Полученные</button>
       <button type="button" className="active"><span><AppIcon name="profile" /></span>Профиль</button>
     </nav>
+  </section>
+)}
+{showSettings && (
+  <section className="profile-screen settings-screen" aria-label="Настройки">
+    <button type="button" className="profile-back" onClick={() => { setShowSettings(false); setShowProfile(true); }}>← Профиль</button>
+    <div className="settings-content">
+      <p className="eyebrow">POSTIE</p>
+      <h1>Настройки</h1>
+
+      <section className="settings-section">
+        <h2>Профиль</h2>
+        <div className="settings-avatar-row">
+          <div className="profile-avatar settings-avatar" aria-hidden="true">
+            {profileAvatar ? <img src={profileAvatar} alt="" style={{ objectPosition: "50% 50%", transform: `translate(${(50 - avatarX) * 0.7}%, ${(50 - avatarY) * 0.7}%) scale(${avatarScale})`, transformOrigin: "center" }} /> : profileName.trim().charAt(0).toUpperCase() || "P"}
+          </div>
+          <div className="settings-avatar-actions">
+            <button type="button" className="settings-secondary" onClick={() => settingsAvatarInput.current?.click()}>{profileAvatar ? "Изменить фото" : "Добавить фото"}</button>
+            {profileAvatar && <button type="button" className="settings-text-button" onClick={() => { setProfileAvatar(null); window.localStorage.removeItem("postie-profile-avatar"); setSettingsMessage("Фото профиля удалено."); }}>Удалить фото</button>}
+          </div>
+        </div>
+        <input ref={settingsAvatarInput} type="file" accept="image/*" hidden onChange={(event) => { loadProfileAvatar(event.target.files?.[0]); event.target.value = ""; }} />
+        {profileAvatar && <div className="settings-crop-controls">
+          <label>Масштаб<input type="range" min="1" max="2.5" step="0.05" value={avatarScale} onChange={(event) => { const value = Number(event.target.value); setAvatarScale(value); window.localStorage.setItem("postie-avatar-scale", String(value)); }} /></label>
+          <label>По горизонтали<input type="range" min="0" max="100" value={avatarX} onChange={(event) => { const value = Number(event.target.value); setAvatarX(value); window.localStorage.setItem("postie-avatar-x", String(value)); }} /></label>
+          <label>По вертикали<input type="range" min="0" max="100" value={avatarY} onChange={(event) => { const value = Number(event.target.value); setAvatarY(value); window.localStorage.setItem("postie-avatar-y", String(value)); }} /></label>
+          <button type="button" className="settings-text-button" onClick={() => { setAvatarScale(1); setAvatarX(50); setAvatarY(50); window.localStorage.setItem("postie-avatar-scale", "1"); window.localStorage.setItem("postie-avatar-x", "50"); window.localStorage.setItem("postie-avatar-y", "50"); }}>Сбросить кадрирование</button>
+        </div>}
+        <label className="settings-name-field">Имя в профиле<input value={settingsName} maxLength={40} onChange={(event) => { setSettingsName(event.target.value); setSettingsMessage(""); }} placeholder="Как тебя называть?" /></label>
+        <button type="button" className="primary-button settings-save" onClick={saveSettingsName}>Сохранить имя</button>
+        {settingsMessage && <p className="settings-feedback" role="status">{settingsMessage}</p>}
+      </section>
+
+      <section className="settings-section settings-row">
+        <div><h2>Язык</h2><p>Язык интерфейса Postie</p></div>
+        <button type="button" className="settings-secondary" onClick={toggleLanguage}>{language === "ru" ? "English" : "Русский"}</button>
+      </section>
+
+      <section className="settings-section">
+        <h2>Аккаунт</h2>
+        {authLoaded && accountEmail ? <><p className="settings-account-email">{accountEmail}</p><button type="button" className="settings-secondary" onClick={async () => {
+          try {
+            const supabase = createSupabaseClient();
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+            setAccountEmail(null);
+            setSettingsMessage("Вы вышли из аккаунта.");
+          } catch (error) { setSettingsMessage(error instanceof Error ? error.message : "Не удалось выйти из аккаунта."); }
+        }}>Выйти из аккаунта</button></> : <><p>Войди, чтобы отправлять открытки друзьям и хранить их в своём аккаунте.</p><a className="settings-secondary settings-link" href="/auth">Войти или создать аккаунт</a></>}
+      </section>
+
+      <section className="settings-section">
+        <h2>Помощь</h2>
+        <button type="button" className="settings-help-toggle" aria-expanded={showHelpDetails} onClick={() => setShowHelpDetails((value) => !value)}>Как пользоваться Postie <span>{showHelpDetails ? "−" : "+"}</span></button>
+        {showHelpDetails && <p className="settings-help-copy">Выбери открытку в галерее или создай свою, добавь поздравление и отправь её другу либо поделись ссылкой.</p>}
+      </section>
+
+      <section className="settings-about"><span className="postmark">POSTIE</span><h2>Открытки из ваших моментов</h2><p>Сохраняй тёплые воспоминания и делись ими с близкими.</p></section>
+    </div>
   </section>
 )}
 {selectedMail && (

@@ -274,6 +274,23 @@ const english: Record<string, string> = {
   "Не удалось открыть архив.": "Could not open the archive.",
   "Не удалось обработать запрос.": "Could not process the request.",
   "Войди в аккаунт Postie, чтобы сохранить открытку в архив.": "Sign in to Postie to save a postcard to your archive.",
+  "Имя в профиле": "Profile name",
+  "Изменить фото": "Change photo",
+  "Удалить фото": "Remove photo",
+  "Сохранить имя": "Save name",
+  "Введите имя.": "Enter a name to continue.",
+  "Изменения сохранены.": "Changes saved.",
+  "Фото обновлено.": "Photo updated.",
+  "Фото профиля удалено.": "Profile photo removed.",
+  "Русский": "Russian",
+  "Язык интерфейса Postie": "Postie interface language",
+  "Аккаунт": "Account",
+  "Войди, чтобы отправлять открытки друзьям и хранить их в своём аккаунте.": "Sign in to send postcards to friends and keep them in your account.",
+  "Как пользоваться Postie": "How to use Postie",
+  "Выбери открытку в галерее или создай свою, добавь поздравление и отправь её другу либо поделись ссылкой.": "Choose a postcard from the gallery or create your own, add a message, then send it to a friend or share a link.",
+  "Открытки из ваших моментов": "Postcards from your moments",
+  "Сохраняй тёплые воспоминания и делись ими с близкими.": "Keep your warm memories and share them with the people you love.",
+  "Вы вышли из аккаунта.": "You have signed out.",
 };
 
 type LanguageContextValue = { language: Language; toggleLanguage: () => void };
